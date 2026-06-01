@@ -4,6 +4,7 @@ import java.util.List;
 
 public record AdminStateResponse(
         PersonResponse currentResponsible,
-        List<SuccessionItemResponse> successionList
+        List<SuccessionItemResponse> successionList,
+        PublishedDisplayResponse publishedDisplay
 ) {
 }

@@ -4,7 +4,9 @@ import com.ezeiza.cartelera.dto.AdminStateResponse;
 import com.ezeiza.cartelera.dto.AvailabilityRequest;
 import com.ezeiza.cartelera.dto.CreatePersonRequest;
 import com.ezeiza.cartelera.dto.PersonResponse;
+import com.ezeiza.cartelera.dto.PublishedDisplayResponse;
 import com.ezeiza.cartelera.dto.SuccessionItemResponse;
+import com.ezeiza.cartelera.entity.DisplayPublished;
 import com.ezeiza.cartelera.entity.Person;
 import com.ezeiza.cartelera.entity.SuccessionOrder;
 import com.ezeiza.cartelera.repository.SuccessionOrderRepository;
@@ -84,6 +86,20 @@ public class ApiController {
                 .orElse(null);
     }
 
+    @PostMapping("/display/publish")
+    public AdminStateResponse publishDisplay() {
+        displayService.publishCurrentDisplay();
+
+        return buildAdminStateResponse();
+    }
+
+    @GetMapping("/display/published")
+    public PublishedDisplayResponse getPublishedDisplay() {
+        return displayService.getLastPublishedDisplay()
+                .map(this::toPublishedDisplayResponse)
+                .orElse(null);
+    }
+
     private AdminStateResponse buildAdminStateResponse() {
         PersonResponse currentResponsible = displayService.calculateCurrentResponsible()
                 .map(this::toPersonResponse)
@@ -95,7 +111,15 @@ public class ApiController {
                 .map(this::toSuccessionItemResponse)
                 .toList();
 
-        return new AdminStateResponse(currentResponsible, successionList);
+        PublishedDisplayResponse publishedDisplay = displayService.getLastPublishedDisplay()
+                .map(this::toPublishedDisplayResponse)
+                .orElse(null);
+
+        return new AdminStateResponse(
+                currentResponsible,
+                successionList,
+                publishedDisplay
+        );
     }
 
     private SuccessionItemResponse toSuccessionItemResponse(SuccessionOrder item) {
@@ -115,6 +139,18 @@ public class ApiController {
                 person.getPosition(),
                 person.isAvailable(),
                 person.isActive()
+        );
+    }
+
+    private PublishedDisplayResponse toPublishedDisplayResponse(DisplayPublished published) {
+        return new PublishedDisplayResponse(
+                published.getId(),
+                published.getPersonId(),
+                published.getResponsibleName(),
+                published.getResponsiblePosition(),
+                published.getPlantName(),
+                published.getMainTitle(),
+                published.getPublishedAt() != null ? published.getPublishedAt().toString() : null
         );
     }
 }
