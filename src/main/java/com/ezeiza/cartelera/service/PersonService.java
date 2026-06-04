@@ -14,11 +14,15 @@ public class PersonService {
 
     private final PersonRepository personRepository;
     private final SuccessionOrderRepository successionOrderRepository;
+    private final AuditService auditService;
+
 
     public PersonService(PersonRepository personRepository,
-                         SuccessionOrderRepository successionOrderRepository) {
+                         SuccessionOrderRepository successionOrderRepository,
+                         AuditService auditService) {
         this.personRepository = personRepository;
         this.successionOrderRepository = successionOrderRepository;
+        this.auditService = auditService;
     }
 
     public List<Person> findActivePersons() {
@@ -35,6 +39,15 @@ public class PersonService {
         SuccessionOrder successionOrder = new SuccessionOrder(savedPerson, maxOrder + 1);
         successionOrderRepository.save(successionOrder);
 
+        auditService.register(
+                "CREATE_PERSON",
+                "Person",
+                savedPerson.getId(),
+                "Se creó la persona " + savedPerson.getFullName(),
+                null,
+                "available=false, active=true, orderNumber=" + successionOrder.getOrderNumber()
+        );
+
         return savedPerson;
     }
 
@@ -43,8 +56,21 @@ public class PersonService {
         Person person = personRepository.findById(personId)
                 .orElseThrow(() -> new IllegalArgumentException("Persona no encontrada"));
 
+        boolean oldAvailability = person.isAvailable();
+
         person.setAvailable(available);
         personRepository.save(person);
+
+        String newAvailabilityText = available ? "Disponible" : "No disponible";
+
+        auditService.register(
+                "CHANGE_AVAILABILITY",
+                "Person",
+                person.getId(),
+                "Se cambió la disponibilidad de " + person.getFullName() + " a " + newAvailabilityText,
+                "available=" + oldAvailability,
+                "available=" + available
+        );
     }
 
     @Transactional
@@ -56,6 +82,8 @@ public class PersonService {
             return;
         }
 
+        Integer totalPositions = successionOrderRepository.findMaxActiveOrderNumber();
+
         SuccessionOrder previous = successionOrderRepository
                 .findByOrderNumberAndActiveTrue(current.getOrderNumber() - 1)
                 .orElse(null);
@@ -65,13 +93,24 @@ public class PersonService {
             return;
         }
 
-        Integer currentOrder = current.getOrderNumber();
+        Integer oldOrder = current.getOrderNumber();
+        Integer previousOrder = previous.getOrderNumber();
 
-        current.setOrderNumber(previous.getOrderNumber());
-        previous.setOrderNumber(currentOrder);
+        current.setOrderNumber(previousOrder);
+        previous.setOrderNumber(oldOrder);
 
         successionOrderRepository.save(previous);
         successionOrderRepository.save(current);
+
+        auditService.register(
+                "MOVE_UP",
+                "SuccessionOrder",
+                current.getId(),
+                "Se subió en la sucesión a " + current.getPerson().getFullName()
+                        + " a la posición " + current.getOrderNumber() + "/" + totalPositions,
+                "orderNumber=" + oldOrder,
+                "orderNumber=" + current.getOrderNumber()
+        );
     }
 
     @Transactional
@@ -79,9 +118,9 @@ public class PersonService {
         SuccessionOrder current = successionOrderRepository.findByPersonIdAndActiveTrue(personId)
                 .orElseThrow(() -> new IllegalArgumentException("La persona no está en la lista de sucesión"));
 
-        Integer maxOrder = successionOrderRepository.findMaxActiveOrderNumber();
+        Integer totalPositions = successionOrderRepository.findMaxActiveOrderNumber();
 
-        if (current.getOrderNumber() >= maxOrder) {
+        if (current.getOrderNumber() >= totalPositions) {
             return;
         }
 
@@ -94,13 +133,24 @@ public class PersonService {
             return;
         }
 
-        Integer currentOrder = current.getOrderNumber();
+        Integer oldOrder = current.getOrderNumber();
+        Integer nextOrder = next.getOrderNumber();
 
-        current.setOrderNumber(next.getOrderNumber());
-        next.setOrderNumber(currentOrder);
+        current.setOrderNumber(nextOrder);
+        next.setOrderNumber(oldOrder);
 
         successionOrderRepository.save(next);
         successionOrderRepository.save(current);
+
+        auditService.register(
+                "MOVE_DOWN",
+                "SuccessionOrder",
+                current.getId(),
+                "Se bajó en la sucesión a " + current.getPerson().getFullName()
+                        + " a la posición " + current.getOrderNumber() + "/" + totalPositions,
+                "orderNumber=" + oldOrder,
+                "orderNumber=" + current.getOrderNumber()
+        );
     }
 
     @Transactional
@@ -111,6 +161,7 @@ public class PersonService {
         SuccessionOrder successionOrder = successionOrderRepository.findByPersonIdAndActiveTrue(personId)
                 .orElseThrow(() -> new IllegalArgumentException("La persona no está en la lista de sucesión"));
 
+        boolean oldAvailable = person.isAvailable();
         person.setActive(false);
         person.setAvailable(false);
         successionOrder.setActive(false);
@@ -119,6 +170,15 @@ public class PersonService {
         successionOrderRepository.save(successionOrder);
 
         normalizeSuccessionOrder();
+
+        auditService.register(
+                "REMOVE_PERSON",
+                "Person",
+                person.getId(),
+                "Se eliminó de la lista a " + person.getFullName(),
+                "active=true, available=" + oldAvailable,
+                "active=false, available=false"
+        );
     }
 
     @Transactional

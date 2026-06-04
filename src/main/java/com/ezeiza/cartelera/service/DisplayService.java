@@ -19,11 +19,14 @@ public class DisplayService {
 
     private final SuccessionOrderRepository successionOrderRepository;
     private final DisplayPublishedRepository displayPublishedRepository;
+    private final AuditService auditService;
 
     public DisplayService(SuccessionOrderRepository successionOrderRepository,
-                          DisplayPublishedRepository displayPublishedRepository) {
+                          DisplayPublishedRepository displayPublishedRepository,
+                          AuditService auditService) {
         this.successionOrderRepository = successionOrderRepository;
         this.displayPublishedRepository = displayPublishedRepository;
+        this.auditService = auditService;
     }
 
     public Optional<Person> calculateCurrentResponsible() {
@@ -63,8 +66,20 @@ public class DisplayService {
             );
         }
 
-        return displayPublishedRepository.save(published);
-    }
+        DisplayPublished savedPublished = displayPublishedRepository.save(published);
+
+        auditService.register(
+                "PUBLISH_DISPLAY",
+                "DisplayPublished",
+                savedPublished.getId(),
+                savedPublished.getResponsibleName() != null
+                        ? "Se publicó la cartelera con responsable " + savedPublished.getResponsibleName()
+                        : "Se publicó la cartelera sin responsable disponible",
+                null,
+                "responsibleName=" + savedPublished.getResponsibleName()
+        );
+
+        return savedPublished;    }
 
     public Optional<DisplayPublished> getLastPublishedDisplay() {
         return displayPublishedRepository.findTopByOrderByIdDesc();

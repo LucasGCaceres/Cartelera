@@ -1,11 +1,14 @@
 package com.ezeiza.cartelera.config;
 
+import com.ezeiza.cartelera.service.AppUserDetailsService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -16,19 +19,10 @@ import java.util.List;
 @Configuration
 public class SecurityConfig {
 
-    @Bean
-    public UserDetailsService userDetailsService() {
-        var admin = User.withUsername("admin")
-                .password("{noop}admin")
-                .roles("ADMIN")
-                .build();
+    private final AppUserDetailsService appUserDetailsService;
 
-        var usuario = User.withUsername("usuario")
-                .password("{noop}usuario")
-                .roles("USER")
-                .build();
-
-        return new InMemoryUserDetailsManager(admin, usuario);
+    public SecurityConfig(AppUserDetailsService appUserDetailsService) {
+        this.appUserDetailsService = appUserDetailsService;
     }
 
     @Bean
@@ -36,15 +30,41 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .userDetailsService(appUserDetailsService)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/**").permitAll()
-                        .requestMatchers("/styles.css").permitAll()
-                        .requestMatchers("/display").permitAll()
-                        .requestMatchers("/admin").permitAll()
-                        .anyRequest().permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        .requestMatchers("/api/auth/login").permitAll()
+                        .requestMatchers("/api/display/published").permitAll()
+
+                        .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/logout").authenticated()
+
+                        .requestMatchers(HttpMethod.GET, "/api/admin/state").hasAnyRole("ADMIN", "OPERADOR")
+                        .requestMatchers(HttpMethod.GET, "/api/audit-logs").hasRole("ADMIN")
+
+                        .requestMatchers(HttpMethod.POST, "/api/persons").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/persons/**").hasRole("ADMIN")
+
+                        .requestMatchers(HttpMethod.PATCH, "/api/persons/*/availability").hasAnyRole("ADMIN", "OPERADOR")
+                        .requestMatchers(HttpMethod.POST, "/api/persons/*/move-up").hasAnyRole("ADMIN", "OPERADOR")
+                        .requestMatchers(HttpMethod.POST, "/api/persons/*/move-down").hasAnyRole("ADMIN", "OPERADOR")
+                        .requestMatchers(HttpMethod.POST, "/api/display/publish").hasAnyRole("ADMIN", "OPERADOR")
+
+                        .anyRequest().authenticated()
                 );
 
         return http.build();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
+        return configuration.getAuthenticationManager();
     }
 
     @Bean
@@ -63,11 +83,9 @@ public class SecurityConfig {
                 "OPTIONS"
         ));
 
-        configuration.setAllowedHeaders(List.of(
-                "*"
-        ));
+        configuration.setAllowedHeaders(List.of("*"));
 
-        configuration.setAllowCredentials(false);
+        configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", configuration);

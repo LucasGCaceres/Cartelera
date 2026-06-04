@@ -13,6 +13,9 @@ import com.ezeiza.cartelera.repository.SuccessionOrderRepository;
 import com.ezeiza.cartelera.service.DisplayService;
 import com.ezeiza.cartelera.service.PersonService;
 import org.springframework.web.bind.annotation.*;
+import com.ezeiza.cartelera.dto.AuditLogResponse;
+import com.ezeiza.cartelera.entity.AuditLog;
+import com.ezeiza.cartelera.service.AuditService;
 
 import java.util.List;
 
@@ -23,18 +26,29 @@ public class ApiController {
     private final PersonService personService;
     private final DisplayService displayService;
     private final SuccessionOrderRepository successionOrderRepository;
+    private final AuditService auditService;
 
     public ApiController(PersonService personService,
                          DisplayService displayService,
-                         SuccessionOrderRepository successionOrderRepository) {
+                         SuccessionOrderRepository successionOrderRepository,
+                         AuditService auditService) {
         this.personService = personService;
         this.displayService = displayService;
         this.successionOrderRepository = successionOrderRepository;
+        this.auditService = auditService;
     }
 
     @GetMapping("/admin/state")
     public AdminStateResponse getAdminState() {
         return buildAdminStateResponse();
+    }
+
+    @GetMapping("/audit-logs")
+    public List<AuditLogResponse> getAuditLogs() {
+        return auditService.findLatest()
+                .stream()
+                .map(this::toAuditLogResponse)
+                .toList();
     }
 
     @PostMapping("/persons")
@@ -151,6 +165,20 @@ public class ApiController {
                 published.getPlantName(),
                 published.getMainTitle(),
                 published.getPublishedAt() != null ? published.getPublishedAt().toString() : null
+        );
+    }
+
+    private AuditLogResponse toAuditLogResponse(AuditLog auditLog) {
+        return new AuditLogResponse(
+                auditLog.getId(),
+                auditLog.getUsername(),
+                auditLog.getAction(),
+                auditLog.getEntityName(),
+                auditLog.getEntityId(),
+                auditLog.getDescription(),
+                auditLog.getOldValue(),
+                auditLog.getNewValue(),
+                auditLog.getCreatedAt() != null ? auditLog.getCreatedAt().toString() : null
         );
     }
 }

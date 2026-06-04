@@ -2,6 +2,7 @@ const API_BASE_URL = "http://localhost:8080/api";
 
 async function request(endpoint, options = {}) {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        credentials: "include",
         cache: "no-store",
         headers: {
             "Content-Type": "application/json",
@@ -19,7 +20,30 @@ async function request(endpoint, options = {}) {
         return null;
     }
 
-    return response.json();
+    const text = await response.text();
+
+    if (!text) {
+        return null;
+    }
+
+    return JSON.parse(text);
+}
+
+export function login(username, password) {
+    return request("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ username, password }),
+    });
+}
+
+export function logout() {
+    return request("/auth/logout", {
+        method: "POST",
+    });
+}
+
+export function getCurrentUser() {
+    return request("/auth/me");
 }
 
 export function getAdminState() {
@@ -57,14 +81,17 @@ export function deletePerson(personId) {
         method: "DELETE",
     });
 }
-export function getCurrentDisplayResponsible() {
-    return request("/display/current");
-}
+
 export function publishDisplay() {
     return request("/display/publish", {
         method: "POST",
     });
 }
+
 export function getPublishedDisplay() {
-    return request("/display/published");
+    return request(`/display/published?ts=${Date.now()}`);
+}
+
+export function getAuditLogs() {
+    return request(`/audit-logs?ts=${Date.now()}`);
 }
