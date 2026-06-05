@@ -14,6 +14,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import com.ezeiza.cartelera.dto.RegisterRequest;
+import com.ezeiza.cartelera.service.UserManagementService;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -21,16 +23,30 @@ public class AuthController {
 
     private final AuthenticationManager authenticationManager;
     private final AppUserRepository appUserRepository;
+    private final UserManagementService userManagementService;
+
 
     public AuthController(AuthenticationManager authenticationManager,
-                          AppUserRepository appUserRepository) {
+                          AppUserRepository appUserRepository, UserManagementService userManagementService) {
         this.authenticationManager = authenticationManager;
         this.appUserRepository = appUserRepository;
+        this.userManagementService = userManagementService;
     }
 
     @PostMapping("/login")
     public AuthUserResponse login(@RequestBody LoginRequest request,
                                   HttpServletRequest httpServletRequest) {
+
+        AppUser existingUser = appUserRepository.findByUsername(request.username())
+                .orElse(null);
+
+        if (existingUser != null && !existingUser.isActive()) {
+            throw new ResponseStatusException(
+                    HttpStatus.LOCKED,
+                    "El usuario está deshabilitado. Contactá a un administrador."
+            );
+        }
+
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.username(),
@@ -77,6 +93,17 @@ public class AuthController {
 
         AppUser appUser = appUserRepository.findByUsernameAndActiveTrue(authentication.getName())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+
+        return toAuthUserResponse(appUser);
+    }
+
+    @PostMapping("/register")
+    public AuthUserResponse register(@RequestBody RegisterRequest request) {
+        AppUser appUser = userManagementService.registerReaderUser(
+                request.username(),
+                request.password(),
+                request.fullName()
+        );
 
         return toAuthUserResponse(appUser);
     }

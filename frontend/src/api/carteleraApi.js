@@ -13,7 +13,9 @@ async function request(endpoint, options = {}) {
 
     if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(errorText || `Error HTTP ${response.status}`);
+        const error = new Error(errorText || `Error HTTP ${response.status}`);
+        error.status = response.status;
+        throw error
     }
 
     if (response.status === 204) {
@@ -94,4 +96,43 @@ export function getPublishedDisplay() {
 
 export function getAuditLogs() {
     return request(`/audit-logs?ts=${Date.now()}`);
+}
+
+export function getUsers() {
+    return request(`/users?ts=${Date.now()}`);
+}
+
+export function createUser(userData) {
+    return request("/users", {
+        method: "POST",
+        body: JSON.stringify(userData),
+    });
+}
+
+export function updateUserRole(userId, role) {
+    return request(`/users/${userId}/role`, {
+        method: "PATCH",
+        body: JSON.stringify({ role }),
+    });
+}
+
+export function updateUserStatus(userId, active) {
+    return request(`/users/${userId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ active }),
+    });
+}
+
+export function resetUserPassword(userId, password) {
+    return request(`/users/${userId}/password`, {
+        method: "PATCH",
+        body: JSON.stringify({ password }),
+    });
+}
+
+export function registerUser(userData) {
+    return request("/auth/register", {
+        method: "POST",
+        body: JSON.stringify(userData),
+    });
 }

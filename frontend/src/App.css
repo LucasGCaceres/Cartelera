@@ -470,3 +470,38 @@ th {
 .logout-button {
   border-color: rgba(255, 255, 255, 0.55);
 }
+
+select {
+  font: inherit;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 9px 10px;
+  background: white;
+  color: #172033;
+}
+
+.role-help {
+  display: grid;
+  gap: 12px;
+  color: #475569;
+}
+
+.role-help p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.link-button {
+  background: transparent;
+  color: #1f77b4;
+  border: none;
+  padding: 0;
+  text-align: left;
+  font-weight: 800;
+}
+
+.link-button:hover:not(:disabled) {
+  background: transparent;
+  color: #155d8b;
+  text-decoration: underline;
+}

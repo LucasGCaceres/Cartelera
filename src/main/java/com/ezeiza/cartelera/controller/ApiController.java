@@ -16,6 +16,13 @@ import org.springframework.web.bind.annotation.*;
 import com.ezeiza.cartelera.dto.AuditLogResponse;
 import com.ezeiza.cartelera.entity.AuditLog;
 import com.ezeiza.cartelera.service.AuditService;
+import com.ezeiza.cartelera.dto.CreateUserRequest;
+import com.ezeiza.cartelera.dto.ResetPasswordRequest;
+import com.ezeiza.cartelera.dto.UpdateUserRoleRequest;
+import com.ezeiza.cartelera.dto.UpdateUserStatusRequest;
+import com.ezeiza.cartelera.dto.UserResponse;
+import com.ezeiza.cartelera.entity.AppUser;
+import com.ezeiza.cartelera.service.UserManagementService;
 
 import java.util.List;
 
@@ -27,15 +34,17 @@ public class ApiController {
     private final DisplayService displayService;
     private final SuccessionOrderRepository successionOrderRepository;
     private final AuditService auditService;
+    private final UserManagementService userManagementService;
 
     public ApiController(PersonService personService,
                          DisplayService displayService,
                          SuccessionOrderRepository successionOrderRepository,
-                         AuditService auditService) {
+                         AuditService auditService, UserManagementService userManagementService) {
         this.personService = personService;
         this.displayService = displayService;
         this.successionOrderRepository = successionOrderRepository;
         this.auditService = auditService;
+        this.userManagementService = userManagementService;
     }
 
     @GetMapping("/admin/state")
@@ -49,6 +58,48 @@ public class ApiController {
                 .stream()
                 .map(this::toAuditLogResponse)
                 .toList();
+    }
+
+    @GetMapping("/users")
+    public List<UserResponse> getUsers() {
+        return userManagementService.findAllUsers()
+                .stream()
+                .map(this::toUserResponse)
+                .toList();
+    }
+
+    @PostMapping("/users")
+    public List<UserResponse> createUser(@RequestBody CreateUserRequest request) {
+        userManagementService.createUser(
+                request.username(),
+                request.password(),
+                request.fullName(),
+                request.role()
+        );
+
+        return getUsers();
+    }
+
+    @PatchMapping("/users/{id}/role")
+    public List<UserResponse> updateUserRole(@PathVariable Long id,
+                                             @RequestBody UpdateUserRoleRequest request) {
+        userManagementService.updateRole(id, request.role());
+        return getUsers();
+    }
+
+    @PatchMapping("/users/{id}/status")
+    public List<UserResponse> updateUserStatus(@PathVariable Long id,
+                                               @RequestBody UpdateUserStatusRequest request) {
+        boolean active = Boolean.TRUE.equals(request.active());
+        userManagementService.updateStatus(id, active);
+        return getUsers();
+    }
+
+    @PatchMapping("/users/{id}/password")
+    public List<UserResponse> resetUserPassword(@PathVariable Long id,
+                                                @RequestBody ResetPasswordRequest request) {
+        userManagementService.resetPassword(id, request.password());
+        return getUsers();
     }
 
     @PostMapping("/persons")
@@ -179,6 +230,18 @@ public class ApiController {
                 auditLog.getOldValue(),
                 auditLog.getNewValue(),
                 auditLog.getCreatedAt() != null ? auditLog.getCreatedAt().toString() : null
+        );
+    }
+
+    private UserResponse toUserResponse(AppUser user) {
+        return new UserResponse(
+                user.getId(),
+                user.getUsername(),
+                user.getFullName(),
+                user.getRole().name(),
+                user.isActive(),
+                user.getCreatedAt() != null ? user.getCreatedAt().toString() : null,
+                user.getUpdatedAt() != null ? user.getUpdatedAt().toString() : null
         );
     }
 }
