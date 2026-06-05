@@ -43,14 +43,14 @@ function App() {
 
   useEffect(() => {
     async function checkSession() {
-      if (window.location.pathname.includes("display")) {
-        setAuthLoading(false);
-        return;
-      }
-
       try {
         const user = await getCurrentUser();
         setCurrentUser(user);
+
+        if (user.role === "LECTOR" && !window.location.pathname.includes("display")) {
+          setRoute("display");
+          window.history.replaceState({}, "", "/display");
+        }
       } catch (err) {
         setCurrentUser(null);
       } finally {
@@ -62,7 +62,14 @@ function App() {
   }, []);
 
   function navigateTo(nextRoute) {
-    if ((nextRoute === "history" || nextRoute === "users") && currentUser?.role !== "ADMIN") {
+    if (currentUser?.role === "LECTOR" && nextRoute !== "display") {
+      return;
+    }
+
+    if (
+        (nextRoute === "history" || nextRoute === "users") &&
+        currentUser?.role !== "ADMIN"
+    ) {
       return;
     }
 
@@ -79,6 +86,13 @@ function App() {
 
   async function handleLoginSuccess(user) {
     setCurrentUser(user);
+
+    if (user.role === "LECTOR") {
+      setRoute("display");
+      window.history.pushState({}, "", "/display");
+      return;
+    }
+
     setRoute("admin");
     window.history.pushState({}, "", "/");
   }
@@ -96,7 +110,7 @@ function App() {
   }
 
   if (route === "display") {
-    return <DisplayPage />;
+    return <DisplayPage currentUser={currentUser} onLogout={handleLogout} />;
   }
 
   if (authLoading) {
@@ -111,6 +125,10 @@ function App() {
 
   if (!currentUser) {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  if (currentUser.role === "LECTOR") {
+    return <DisplayPage currentUser={currentUser} onLogout={handleLogout} />;
   }
 
   if (route === "history") {
@@ -522,7 +540,7 @@ function AdminPage({ activeRoute, onNavigate, currentUser, onLogout }) {
         position: "",
       });
     } catch (err) {
-      setError("No se pudo crear la persona.");
+      setError(err.message || "No se pudo crear la persona.");
       console.error(err);
     } finally {
       setActionLoading(false);
@@ -753,7 +771,6 @@ function AdminPage({ activeRoute, onNavigate, currentUser, onLogout }) {
                         name="firstName"
                         value={formData.firstName}
                         onChange={handleInputChange}
-                        placeholder="Ej: Ana"
                         required
                     />
                   </label>
@@ -765,7 +782,6 @@ function AdminPage({ activeRoute, onNavigate, currentUser, onLogout }) {
                         name="lastName"
                         value={formData.lastName}
                         onChange={handleInputChange}
-                        placeholder="Ej: Torres"
                         required
                     />
                   </label>
@@ -777,7 +793,6 @@ function AdminPage({ activeRoute, onNavigate, currentUser, onLogout }) {
                         name="position"
                         value={formData.position}
                         onChange={handleInputChange}
-                        placeholder="Ej: Coordinadora"
                     />
                   </label>
 
@@ -1063,7 +1078,7 @@ function UsersPage({ activeRoute, onNavigate, currentUser, onLogout }) {
       const data = await updateUserRole(userId, role);
       setUsers(data);
     } catch (err) {
-      setError("No se pudo cambiar el rol del usuario.");
+      setError(err.message || "No se pudo cambiar el rol del usuario.");
       console.error(err);
     } finally {
       setActionLoading(false);
@@ -1093,7 +1108,7 @@ function UsersPage({ activeRoute, onNavigate, currentUser, onLogout }) {
       const data = await updateUserStatus(user.id, !user.active);
       setUsers(data);
     } catch (err) {
-      setError("No se pudo cambiar el estado del usuario.");
+      setError(err.message || "No se pudo cambiar el estado del usuario.");
       console.error(err);
     } finally {
       setActionLoading(false);
@@ -1148,7 +1163,6 @@ function UsersPage({ activeRoute, onNavigate, currentUser, onLogout }) {
                     name="username"
                     value={formData.username}
                     onChange={handleInputChange}
-                    placeholder="Ej: recepcion1"
                     required
                 />
               </label>
@@ -1160,7 +1174,6 @@ function UsersPage({ activeRoute, onNavigate, currentUser, onLogout }) {
                     name="fullName"
                     value={formData.fullName}
                     onChange={handleInputChange}
-                    placeholder="Ej: Usuario Recepción"
                     required
                 />
               </label>
@@ -1172,7 +1185,6 @@ function UsersPage({ activeRoute, onNavigate, currentUser, onLogout }) {
                     name="password"
                     value={formData.password}
                     onChange={handleInputChange}
-                    placeholder="Contraseña"
                     required
                 />
               </label>
@@ -1184,8 +1196,8 @@ function UsersPage({ activeRoute, onNavigate, currentUser, onLogout }) {
                     value={formData.role}
                     onChange={handleInputChange}
                 >
-                  <option value="OPERADOR">Operador</option>
                   <option value="ADMIN">Administrador</option>
+                  <option value="OPERADOR">Operador</option>
                   <option value="LECTOR">Lector</option>
                 </select>
               </label>
@@ -1210,8 +1222,7 @@ function UsersPage({ activeRoute, onNavigate, currentUser, onLogout }) {
                 de cartelera.
               </p>
               <p>
-                <strong>LECTOR:</strong> reservado para solo lectura en una etapa
-                posterior.
+                <strong>LECTOR:</strong> solo tiene acceso al display.
               </p>
             </div>
           </section>
@@ -1262,7 +1273,9 @@ function UsersPage({ activeRoute, onNavigate, currentUser, onLogout }) {
                                   handleChangeRole(user.id, event.target.value)
                               }
                               disabled={
-                                  actionLoading || user.username === currentUser.username
+                                  actionLoading ||
+                                  user.username === currentUser.username ||
+                                  user.username === "admin"
                               }
                           >
                             <option value="ADMIN">Administrador</option>
@@ -1294,7 +1307,9 @@ function UsersPage({ activeRoute, onNavigate, currentUser, onLogout }) {
                                 className={user.active ? "danger-button" : ""}
                                 onClick={() => handleToggleStatus(user)}
                                 disabled={
-                                    actionLoading || user.username === currentUser.username
+                                    actionLoading ||
+                                    user.username === currentUser.username ||
+                                    user.username === "admin"
                                 }
                             >
                               {user.active ? "Desactivar" : "Activar"}
@@ -1312,7 +1327,7 @@ function UsersPage({ activeRoute, onNavigate, currentUser, onLogout }) {
   );
 }
 
-function DisplayPage() {
+function DisplayPage({ currentUser, onLogout }) {
   const [publishedDisplay, setPublishedDisplay] = useState(null);
   const [loading, setLoading] = useState(true);
   const [connectionError, setConnectionError] = useState(false);
@@ -1342,6 +1357,15 @@ function DisplayPage() {
 
   return (
       <main className="display-page">
+        {currentUser && (
+            <button
+                type="button"
+                className="display-logout-button"
+                onClick={onLogout}
+            >
+              Salir
+            </button>
+        )}
         <section className="display-content">
           <h1>{publishedDisplay?.plantName || "PLANTA EZEIZA"}</h1>
 

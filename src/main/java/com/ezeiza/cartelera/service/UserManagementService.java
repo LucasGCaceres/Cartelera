@@ -12,6 +12,8 @@ import java.util.List;
 @Service
 public class UserManagementService {
 
+    private static final String PRIMARY_ADMIN_USERNAME = "admin";
+
     private final AppUserRepository appUserRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditService auditService;
@@ -83,6 +85,18 @@ public class UserManagementService {
         UserRole oldRole = user.getRole();
         UserRole newRole = parseRole(roleValue);
 
+        if (PRIMARY_ADMIN_USERNAME.equalsIgnoreCase(user.getUsername()) && newRole != UserRole.ADMIN) {
+            throw new IllegalArgumentException("No se puede cambiar el rol del administrador principal");
+        }
+
+        if (oldRole == UserRole.ADMIN && newRole != UserRole.ADMIN) {
+            long activeAdmins = appUserRepository.countByRoleAndActiveTrue(UserRole.ADMIN);
+
+            if (user.isActive() && activeAdmins <= 1) {
+                throw new IllegalArgumentException("No se puede dejar el sistema sin administradores activos");
+            }
+        }
+
         user.setRole(newRole);
         AppUser savedUser = appUserRepository.save(user);
 
@@ -103,6 +117,18 @@ public class UserManagementService {
     public AppUser updateStatus(Long userId, boolean active) {
         AppUser user = appUserRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+
+        if (PRIMARY_ADMIN_USERNAME.equalsIgnoreCase(user.getUsername()) && !active) {
+            throw new IllegalArgumentException("No se puede desactivar el administrador principal");
+        }
+
+        if (user.getRole() == UserRole.ADMIN && user.isActive() && !active) {
+            long activeAdmins = appUserRepository.countByRoleAndActiveTrue(UserRole.ADMIN);
+
+            if (activeAdmins <= 1) {
+                throw new IllegalArgumentException("No se puede dejar el sistema sin administradores activos");
+            }
+        }
 
         boolean oldStatus = user.isActive();
 

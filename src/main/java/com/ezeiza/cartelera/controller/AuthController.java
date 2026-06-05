@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import com.ezeiza.cartelera.dto.RegisterRequest;
 import com.ezeiza.cartelera.service.UserManagementService;
+import org.springframework.security.core.AuthenticationException;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -24,7 +25,6 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final AppUserRepository appUserRepository;
     private final UserManagementService userManagementService;
-
 
     public AuthController(AuthenticationManager authenticationManager,
                           AppUserRepository appUserRepository, UserManagementService userManagementService) {
@@ -47,12 +47,21 @@ public class AuthController {
             );
         }
 
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.username(),
-                        request.password()
-                )
-        );
+        Authentication authentication;
+
+        try {
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            request.username(),
+                            request.password()
+                    )
+            );
+        } catch (AuthenticationException ex) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Usuario o contraseña incorrectos."
+            );
+        }
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
 

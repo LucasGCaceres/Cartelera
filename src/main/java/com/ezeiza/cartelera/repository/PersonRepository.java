@@ -9,4 +9,8 @@ public interface PersonRepository extends JpaRepository<Person, Long> {
 
     List<Person> findByActiveTrueOrderByLastNameAscFirstNameAsc();
 
+    boolean existsByFirstNameIgnoreCaseAndLastNameIgnoreCaseAndActiveTrue(
+            String firstName,
+            String lastName
+    );
 }

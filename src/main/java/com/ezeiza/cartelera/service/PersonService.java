@@ -31,7 +31,31 @@ public class PersonService {
 
     @Transactional
     public Person createPerson(String firstName, String lastName, String position) {
-        Person person = new Person(firstName, lastName, position);
+        if (firstName == null || firstName.isBlank()) {
+            throw new IllegalArgumentException("El nombre es obligatorio");
+        }
+
+        if (lastName == null || lastName.isBlank()) {
+            throw new IllegalArgumentException("El apellido es obligatorio");
+        }
+
+        String cleanFirstName = firstName.trim();
+        String cleanLastName = lastName.trim();
+        String cleanPosition = position != null ? position.trim() : "";
+
+        boolean alreadyExists = personRepository
+                .existsByFirstNameIgnoreCaseAndLastNameIgnoreCaseAndActiveTrue(
+                        cleanFirstName,
+                        cleanLastName
+                );
+
+        if (alreadyExists) {
+            throw new IllegalArgumentException(
+                    "Ya existe una persona activa con ese nombre y apellido"
+            );
+        }
+
+        Person person = new Person(cleanFirstName, cleanLastName, cleanPosition);
         Person savedPerson = personRepository.save(person);
 
         Integer maxOrder = successionOrderRepository.findMaxActiveOrderNumber();
