@@ -89,9 +89,16 @@ public class ApiController {
 
     @PatchMapping("/users/{id}/status")
     public List<UserResponse> updateUserStatus(@PathVariable Long id,
-                                               @RequestBody UpdateUserStatusRequest request) {
+                                               @RequestBody UpdateUserStatusRequest request,
+                                               org.springframework.security.core.Authentication authentication) {
         boolean active = Boolean.TRUE.equals(request.active());
-        userManagementService.updateStatus(id, active);
+
+        String currentUsername = authentication != null
+                ? authentication.getName()
+                : null;
+
+        userManagementService.updateStatus(id, active, currentUsername);
+
         return getUsers();
     }
 

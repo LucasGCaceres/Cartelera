@@ -114,12 +114,22 @@ public class UserManagementService {
     }
 
     @Transactional
-    public AppUser updateStatus(Long userId, boolean active) {
+    public AppUser updateStatus(Long userId, boolean active, String currentUsername) {
         AppUser user = appUserRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
 
-        if (PRIMARY_ADMIN_USERNAME.equalsIgnoreCase(user.getUsername()) && !active) {
+        if (isPrimaryAdmin(user) && !active) {
             throw new IllegalArgumentException("No se puede desactivar el administrador principal");
+        }
+
+        if (
+                currentUsername != null
+                        && user.getUsername() != null
+                        && user.getUsername().equalsIgnoreCase(currentUsername)
+                        && user.isActive()
+                        && !active
+        ) {
+            throw new IllegalArgumentException("No podés desactivar tu propio usuario");
         }
 
         if (user.getRole() == UserRole.ADMIN && user.isActive() && !active) {
@@ -131,8 +141,8 @@ public class UserManagementService {
         }
 
         boolean oldStatus = user.isActive();
-
         user.setActive(active);
+
         AppUser savedUser = appUserRepository.save(user);
 
         auditService.register(
@@ -222,5 +232,10 @@ public class UserManagementService {
         } catch (IllegalArgumentException ex) {
             throw new IllegalArgumentException("Rol inválido: " + roleValue);
         }
+    }
+
+    private boolean isPrimaryAdmin(AppUser user) {
+        return user != null
+                && PRIMARY_ADMIN_USERNAME.equalsIgnoreCase(user.getUsername());
     }
 }
