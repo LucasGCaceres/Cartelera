@@ -1,3 +1,6 @@
+import { useState } from "react";
+import { login, registerUser } from "../api/carteleraApi.js";
+
 function LoginPage({ onLoginSuccess }) {
     const [mode, setMode] = useState("login");
 
@@ -216,3 +219,5 @@ function LoginPage({ onLoginSuccess }) {
         </main>
     );
 }
+
+export default LoginPage;

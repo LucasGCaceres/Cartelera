@@ -1,4 +1,4 @@
-function translateAction(action) {
+export function translateAction(action) {
     const translations = {
         CREATE_PERSON: "Alta de persona",
         CHANGE_AVAILABILITY: "Cambio disponibilidad",

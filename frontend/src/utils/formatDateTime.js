@@ -1,4 +1,4 @@
-function formatDateTime(value) {
+export function formatDateTime(value) {
     if (!value) {
         return "-";
     }
@@ -9,5 +9,5 @@ function formatDateTime(value) {
         return value;
     }
 
-    return date.toLocaleString();
+    return date.toLocaleString("es-AR");
 }

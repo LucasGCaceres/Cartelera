@@ -1,3 +1,5 @@
+import LoginPage from "../pages/LoginPage.jsx";
+
 function Topbar({ subtitle, activeRoute, onNavigate, currentUser, onLogout }) {
     const isAdmin = currentUser?.role === "ADMIN";
 
@@ -61,3 +63,5 @@ function Topbar({ subtitle, activeRoute, onNavigate, currentUser, onLogout }) {
         </header>
     );
 }
+
+export default Topbar;

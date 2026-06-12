@@ -1,26 +1,12 @@
 import { useEffect, useState } from "react";
+import LoginPage from "./pages/LoginPage.jsx";
+import AdminPage from "./pages/AdminPage.jsx";
+import HistoryPage from "./pages/HistoryPage.jsx";
+import UsersPage from "./pages/UsersPage.jsx";
+import DisplayPage from "./pages/DisplayPage.jsx";
+import { getCurrentUser, logout } from "./api/carteleraApi";
 import "./App.css";
 
-import {
-  createPerson,
-  createUser,
-  deletePerson,
-  getAdminState,
-  getAuditLogs,
-  getCurrentUser,
-  getPublishedDisplay,
-  getUsers,
-  login,
-  logout,
-  movePersonDown,
-  movePersonUp,
-  publishDisplay,
-  resetUserPassword,
-  updateAvailability,
-  updateUserRole,
-  updateUserStatus,
-  registerUser,
-} from "./api/carteleraApi";
 
 function App() {
   const [route, setRoute] = useState("admin");

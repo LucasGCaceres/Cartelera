@@ -1,3 +1,9 @@
+import { useEffect, useState } from "react";
+import Topbar from "../components/Topbar.jsx";
+import { getAuditLogs } from "../api/carteleraApi.js";
+import { formatDateTime } from "../utils/formatDateTime.js";
+import { translateAction } from "../utils/translateAction.js";
+
 function HistoryPage({ activeRoute, onNavigate, currentUser, onLogout }) {
     const [auditLogs, setAuditLogs] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -81,3 +87,5 @@ function HistoryPage({ activeRoute, onNavigate, currentUser, onLogout }) {
         </main>
     );
 }
+
+export default HistoryPage;

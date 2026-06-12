@@ -1,3 +1,13 @@
+import { useEffect, useState } from "react";
+import Topbar from "../components/Topbar.jsx";
+import {
+    createUser,
+    getUsers,
+    resetUserPassword,
+    updateUserRole,
+    updateUserStatus,
+} from "../api/carteleraApi.js";
+
 function UsersPage({ activeRoute, onNavigate, currentUser, onLogout }) {
     const [users, setUsers] = useState([]);
     const [formData, setFormData] = useState({
@@ -332,3 +342,5 @@ function UsersPage({ activeRoute, onNavigate, currentUser, onLogout }) {
         </main>
     );
 }
+
+export default UsersPage;

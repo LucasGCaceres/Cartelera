@@ -1,3 +1,16 @@
+import Topbar from "../components/Topbar.jsx";
+import {useState, useEffect} from "react";
+import {
+    createPerson,
+        deletePerson,
+        getAdminState,
+        movePersonDown,
+        movePersonUp,
+        publishDisplay,
+        updateAvailability,
+} from "../api/carteleraApi.js";
+
+
 function AdminPage({ activeRoute, onNavigate, currentUser, onLogout }) {
     const [adminState, setAdminState] = useState({
         currentResponsible: null,
@@ -434,3 +447,5 @@ function AdminPage({ activeRoute, onNavigate, currentUser, onLogout }) {
         </main>
     );
 }
+
+export default AdminPage;

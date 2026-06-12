@@ -222,57 +222,6 @@ th {
   color: #64748b;
 }
 
-/* Display */
-
-.display-page {
-  min-height: 100vh;
-  background: linear-gradient(135deg, #0b1f33, #123c69);
-  color: white;
-  display: grid;
-  place-items: center;
-  padding: 40px;
-}
-
-.display-content {
-  text-align: center;
-}
-
-.display-content h1 {
-  margin: 0;
-  font-size: clamp(42px, 6vw, 76px);
-  letter-spacing: 0.08em;
-}
-
-.display-title {
-  margin: 18px 0 36px;
-  font-size: clamp(28px, 4vw, 48px);
-  font-weight: 300;
-}
-
-.display-card {
-  min-width: min(900px, 90vw);
-  padding: 54px 72px;
-  border-radius: 30px;
-  background: rgba(255, 255, 255, 0.13);
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
-}
-
-.display-card h2 {
-  margin: 0 0 18px;
-  font-size: clamp(48px, 7vw, 88px);
-}
-
-.display-card p {
-  margin: 0;
-  color: white;
-  font-size: clamp(26px, 4vw, 48px);
-}
-
-.display-message {
-  font-size: clamp(32px, 5vw, 56px) !important;
-  color: #ffd166 !important;
-}
-
 @media (max-width: 860px) {
   .grid {
     grid-template-columns: 1fr;
@@ -287,18 +236,7 @@ th {
     padding: 16px;
   }
 }
-.display-connection-warning {
-  margin: 0 0 20px;
-  color: #ffd166;
-  font-size: 22px;
-  font-weight: 700;
-}
 
-.display-last-check {
-  margin-top: 22px;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 16px;
-}
 .preview-name {
    font-size: 26px;
    font-weight: 800;
@@ -504,19 +442,4 @@ select {
   background: transparent;
   color: #155d8b;
   text-decoration: underline;
-}
-.display-logout-button {
-  position: fixed;
-  top: 18px;
-  right: 18px;
-  z-index: 20;
-  background: rgba(255, 255, 255, 0.14);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  border-radius: 999px;
-  padding: 9px 14px;
-}
-
-.display-logout-button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.24);
 }
