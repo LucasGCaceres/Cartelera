@@ -1,0 +1,70 @@
+.error-box {
+    background: #fde2e2;
+    color: #9f1c1c;
+    border: 1px solid #f5b5b5;
+    padding: 14px 16px;
+    border-radius: 12px;
+    margin-bottom: 18px;
+    font-weight: 700;
+}
+
+.pending-box {
+    display: grid;
+    gap: 4px;
+    background: #e0f2fe;
+    color: #075985;
+    border: 1px solid #7dd3fc;
+    padding: 14px 16px;
+    border-radius: 12px;
+    margin-bottom: 18px;
+}
+
+.pending-box strong {
+    font-size: 15px;
+}
+
+.pending-box span {
+    font-size: 14px;
+}
+
+.warning-pending {
+    background: #fef3c7;
+    color: #92400e;
+    border-color: #fcd34d;
+}
+
+.empty-message {
+    color: #64748b;
+    font-weight: 700;
+}
+
+.responsible-badge {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: #dcfce7;
+    color: #166534;
+    font-weight: 800;
+    font-size: 13px;
+}
+
+.not-responsible-badge {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #64748b;
+    font-weight: 700;
+    font-size: 13px;
+}
+
+.action-badge {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: #e0f2fe;
+    color: #075985;
+    font-weight: 800;
+    font-size: 12px;
+    white-space: nowrap;
+}

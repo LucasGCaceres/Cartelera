@@ -1,11 +1,16 @@
 package com.ezeiza.cartelera.entity;
 
 import jakarta.persistence.*;
-
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "app_users")
+@Table(
+        name = "app_users",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_app_users_username", columnNames = "username"),
+                @UniqueConstraint(name = "uk_app_users_corporate_email", columnNames = "corporate_email")
+        }
+)
 public class AppUser {
 
     @Id
@@ -15,17 +20,22 @@ public class AppUser {
     @Column(nullable = false, unique = true)
     private String username;
 
-    @Column(nullable = false)
-    private String passwordHash;
+    @Column(name = "corporate_email", nullable = false, unique = true)
+    private String corporateEmail;
 
     @Column(nullable = false)
     private String fullName;
 
-    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private UserRole role;
+    private String passwordHash;
 
     private boolean active = true;
+
+    private boolean platformAdmin = false;
+
+    private String entraObjectId;
+
+    private String entraTenantId;
 
     private LocalDateTime createdAt;
 
@@ -35,25 +45,47 @@ public class AppUser {
     }
 
     public AppUser(String username,
+                   String corporateEmail,
                    String passwordHash,
                    String fullName,
-                   UserRole role) {
-        this.username = username;
+                   boolean platformAdmin) {
+        this.username = normalizeUsername(username);
+        this.corporateEmail = normalizeEmail(corporateEmail);
         this.passwordHash = passwordHash;
-        this.fullName = fullName;
-        this.role = role;
+        this.fullName = clean(fullName);
+        this.platformAdmin = platformAdmin;
         this.active = true;
     }
 
     @PrePersist
     public void prePersist() {
+        normalizeFields();
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
     }
 
     @PreUpdate
     public void preUpdate() {
+        normalizeFields();
         updatedAt = LocalDateTime.now();
+    }
+
+    private void normalizeFields() {
+        username = normalizeUsername(username);
+        corporateEmail = normalizeEmail(corporateEmail);
+        fullName = clean(fullName);
+    }
+
+    private static String normalizeUsername(String value) {
+        return value == null ? null : value.trim().toLowerCase();
+    }
+
+    private static String normalizeEmail(String value) {
+        return value == null ? null : value.trim().toLowerCase();
+    }
+
+    private static String clean(String value) {
+        return value == null ? null : value.trim();
     }
 
     public Long getId() {
@@ -64,20 +96,32 @@ public class AppUser {
         return username;
     }
 
-    public String getPasswordHash() {
-        return passwordHash;
+    public String getCorporateEmail() {
+        return corporateEmail;
     }
 
     public String getFullName() {
         return fullName;
     }
 
-    public UserRole getRole() {
-        return role;
+    public String getPasswordHash() {
+        return passwordHash;
     }
 
     public boolean isActive() {
         return active;
+    }
+
+    public boolean isPlatformAdmin() {
+        return platformAdmin;
+    }
+
+    public String getEntraObjectId() {
+        return entraObjectId;
+    }
+
+    public String getEntraTenantId() {
+        return entraTenantId;
     }
 
     public LocalDateTime getCreatedAt() {
@@ -96,19 +140,31 @@ public class AppUser {
         this.username = username;
     }
 
-    public void setPasswordHash(String passwordHash) {
-        this.passwordHash = passwordHash;
+    public void setCorporateEmail(String corporateEmail) {
+        this.corporateEmail = corporateEmail;
     }
 
     public void setFullName(String fullName) {
         this.fullName = fullName;
     }
 
-    public void setRole(UserRole role) {
-        this.role = role;
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
     }
 
     public void setActive(boolean active) {
         this.active = active;
+    }
+
+    public void setPlatformAdmin(boolean platformAdmin) {
+        this.platformAdmin = platformAdmin;
+    }
+
+    public void setEntraObjectId(String entraObjectId) {
+        this.entraObjectId = entraObjectId;
+    }
+
+    public void setEntraTenantId(String entraTenantId) {
+        this.entraTenantId = entraTenantId;
     }
 }

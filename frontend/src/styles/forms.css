@@ -1,0 +1,88 @@
+.person-form {
+    display: grid;
+    gap: 14px;
+    margin-top: 18px;
+}
+
+.person-form label {
+    display: grid;
+    gap: 6px;
+    font-weight: 700;
+    color: #334155;
+}
+
+.person-form input {
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 11px 12px;
+    outline: none;
+}
+
+.person-form input:focus {
+    border-color: #1f77b4;
+    box-shadow: 0 0 0 3px rgba(31, 119, 180, 0.14);
+}
+
+.login-page {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    background: #f4f6f8;
+    padding: 24px;
+}
+
+.login-card {
+    width: min(460px, 100%);
+    background: white;
+    border-radius: 20px;
+    padding: 32px;
+    box-shadow: 0 14px 36px rgba(15, 23, 42, 0.12);
+}
+
+.login-card h1 {
+    margin: 0 0 8px;
+}
+
+.login-card p {
+    margin: 0 0 22px;
+    color: #64748b;
+}
+
+.login-help {
+    margin-top: 18px;
+    padding: 14px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    display: grid;
+    gap: 4px;
+    color: #475569;
+    font-size: 14px;
+}
+
+.link-button {
+    background: transparent;
+    color: #1f77b4;
+    border: none;
+    padding: 0;
+    text-align: left;
+    font-weight: 800;
+}
+
+.link-button:hover:not(:disabled) {
+    background: transparent;
+    color: #155d8b;
+    text-decoration: underline;
+    filter: none;
+}
+
+.role-help {
+    display: grid;
+    gap: 12px;
+    color: #475569;
+}
+
+.role-help p {
+    margin: 0;
+    line-height: 1.5;
+}

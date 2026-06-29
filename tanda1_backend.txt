@@ -1,0 +1,998 @@
+﻿
+
+==================== pom.xml ====================
+
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>4.0.6</version>
+		<relativePath/> <!-- lookup parent from repository -->
+	</parent>
+	<groupId>com.ezeiza</groupId>
+	<artifactId>cartelera</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<name/>
+	<description/>
+	<url/>
+	<licenses>
+		<license/>
+	</licenses>
+	<developers>
+		<developer/>
+	</developers>
+	<scm>
+		<connection/>
+		<developerConnection/>
+		<tag/>
+		<url/>
+	</scm>
+	<properties>
+		<java.version>26</java.version>
+	</properties>
+	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-thymeleaf</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-webmvc</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.thymeleaf.extras</groupId>
+			<artifactId>thymeleaf-extras-springsecurity6</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-thymeleaf-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-webmvc-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.xerial</groupId>
+			<artifactId>sqlite-jdbc</artifactId>
+			<version>3.53.1.0</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.hibernate.orm</groupId>
+			<artifactId>hibernate-community-dialects</artifactId>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>
+
+
+==================== src/main/resources/application.properties ====================
+
+spring.application.name=cartelera
+
+server.port=8080
+
+spring.datasource.url=jdbc:sqlite:cartelera.db
+spring.datasource.driver-class-name=org.sqlite.JDBC
+
+spring.jpa.database-platform=org.hibernate.community.dialect.SQLiteDialect
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+
+spring.thymeleaf.cache=false
+
+spring.servlet.multipart.max-file-size=10MB
+spring.servlet.multipart.max-request-size=10MB
+
+
+==================== src/main/java/com/ezeiza/cartelera/config/SecurityConfig.java ====================
+
+package com.ezeiza.cartelera.config;
+
+import com.ezeiza.cartelera.service.AppUserDetailsService;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
+
+@Configuration
+public class SecurityConfig {
+
+    private final AppUserDetailsService appUserDetailsService;
+
+    public SecurityConfig(AppUserDetailsService appUserDetailsService) {
+        this.appUserDetailsService = appUserDetailsService;
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .csrf(csrf -> csrf.disable())
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .userDetailsService(appUserDetailsService)
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // Frontend React embebido en Spring Boot
+                        .requestMatchers(
+                                "/",
+                                "/display",
+                                "/history",
+                                "/users",
+                                "/assets/**",
+                                "/favicon.ico",
+                                "/vite.svg"
+                        ).permitAll()
+
+                        // Auth pÃºblico temporal
+                        .requestMatchers("/api/auth/login").permitAll()
+                        .requestMatchers("/api/auth/register").permitAll()
+
+                        // API pÃºblica para display/Yodeck
+                        .requestMatchers("/api/display/published").permitAll()
+
+                        // Auth
+                        .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/logout").authenticated()
+
+                        // Panel operativo
+                        .requestMatchers(HttpMethod.GET, "/api/admin/state").hasAnyRole("ADMIN", "OPERADOR")
+
+                        // AuditorÃ­a
+                        .requestMatchers(HttpMethod.GET, "/api/audit-logs").hasRole("ADMIN")
+
+                        // Personas
+                        .requestMatchers(HttpMethod.POST, "/api/persons").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/persons/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/api/persons/*/availability").hasAnyRole("ADMIN", "OPERADOR")
+                        .requestMatchers(HttpMethod.POST, "/api/persons/*/move-up").hasAnyRole("ADMIN", "OPERADOR")
+                        .requestMatchers(HttpMethod.POST, "/api/persons/*/move-down").hasAnyRole("ADMIN", "OPERADOR")
+
+                        // Display
+                        .requestMatchers(HttpMethod.POST, "/api/display/publish").hasAnyRole("ADMIN", "OPERADOR")
+
+                        // Usuarios
+                        .requestMatchers(HttpMethod.GET, "/api/users").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/users").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/api/users/**").hasRole("ADMIN")
+
+                        .anyRequest().authenticated()
+                );
+
+        return http.build();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
+        return configuration.getAuthenticationManager();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        configuration.setAllowedOrigins(List.of(
+                "http://localhost:5173"
+        ));
+
+        configuration.setAllowedMethods(List.of(
+                "GET",
+                "POST",
+                "PATCH",
+                "DELETE",
+                "OPTIONS"
+        ));
+
+        configuration.setAllowedHeaders(List.of("*"));
+
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/api/**", configuration);
+
+        return source;
+    }
+}
+
+
+==================== src/main/java/com/ezeiza/cartelera/config/DataInitializer.java ====================
+
+package com.ezeiza.cartelera.config;
+
+import com.ezeiza.cartelera.entity.AppUser;
+import com.ezeiza.cartelera.entity.UserRole;
+import com.ezeiza.cartelera.repository.AppUserRepository;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Component;
+
+@Component
+public class DataInitializer implements CommandLineRunner {
+
+    private final AppUserRepository appUserRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    public DataInitializer(AppUserRepository appUserRepository,
+                           PasswordEncoder passwordEncoder) {
+        this.appUserRepository = appUserRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    @Override
+    public void run(String... args) {
+        createUserIfNotExists(
+                "admin",
+                "admin",
+                "Administrador del sistema",
+                UserRole.ADMIN
+        );
+
+        createUserIfNotExists(
+                "operador",
+                "operador",
+                "Usuario operador",
+                UserRole.OPERADOR
+        );
+    }
+
+    private void createUserIfNotExists(String username,
+                                       String password,
+                                       String fullName,
+                                       UserRole role) {
+        if (appUserRepository.existsByUsername(username)) {
+            return;
+        }
+
+        AppUser user = new AppUser(
+                username,
+                passwordEncoder.encode(password),
+                fullName,
+                role
+        );
+
+        appUserRepository.save(user);
+    }
+}
+
+
+==================== src/main/java/com/ezeiza/cartelera/entity/AppUser.java ====================
+
+package com.ezeiza.cartelera.entity;
+
+import jakarta.persistence.*;
+
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "app_users")
+public class AppUser {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, unique = true)
+    private String username;
+
+    @Column(nullable = false)
+    private String passwordHash;
+
+    @Column(nullable = false)
+    private String fullName;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private UserRole role;
+
+    private boolean active = true;
+
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
+
+    public AppUser() {
+    }
+
+    public AppUser(String username,
+                   String passwordHash,
+                   String fullName,
+                   UserRole role) {
+        this.username = username;
+        this.passwordHash = passwordHash;
+        this.fullName = fullName;
+        this.role = role;
+        this.active = true;
+    }
+
+    @PrePersist
+    public void prePersist() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    public String getFullName() {
+        return fullName;
+    }
+
+    public UserRole getRole() {
+        return role;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
+    public void setFullName(String fullName) {
+        this.fullName = fullName;
+    }
+
+    public void setRole(UserRole role) {
+        this.role = role;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+}
+
+
+==================== src/main/java/com/ezeiza/cartelera/entity/UserRole.java ====================
+
+package com.ezeiza.cartelera.entity;
+
+public enum UserRole {
+    ADMIN,
+    OPERADOR,
+    LECTOR
+}
+
+
+==================== src/main/java/com/ezeiza/cartelera/entity/Person.java ====================
+
+package com.ezeiza.cartelera.entity;
+
+import jakarta.persistence.*;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "persons")
+public class Person {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
+    private String firstName;
+
+    @Column(nullable = false)
+    private String lastName;
+
+    private String position;
+
+    private String photoPath;
+
+    private boolean active = true;
+
+    private boolean available = false;
+
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
+
+    public Person() {
+    }
+
+    public Person(String firstName, String lastName, String position) {
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.position = position;
+        this.active = true;
+        this.available = false;
+    }
+
+    @PrePersist
+    public void prePersist() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+
+    public String getFullName() {
+        return firstName + " " + lastName;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public String getPosition() {
+        return position;
+    }
+
+    public String getPhotoPath() {
+        return photoPath;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public boolean isAvailable() {
+        return available;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
+    public void setPosition(String position) {
+        this.position = position;
+    }
+
+    public void setPhotoPath(String photoPath) {
+        this.photoPath = photoPath;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
+    public void setAvailable(boolean available) {
+        this.available = available;
+    }
+}
+
+
+==================== src/main/java/com/ezeiza/cartelera/entity/Plant.java ====================
+
+package com.ezeiza.cartelera.entity;
+
+import jakarta.persistence.*;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "plants")
+public class Plant {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(unique = true)
+    private String code;
+
+    @Column(nullable = false)
+    private String name;
+
+    private String displayTitle = "Responsable de planta";
+
+    private boolean active = true;
+
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+
+    public Plant() {
+    }
+
+    public Plant(String code, String name, String displayTitle) {
+        this.code = code;
+        this.name = name;
+        this.displayTitle = displayTitle;
+        this.active = true;
+    }
+
+    @PrePersist
+    public void prePersist() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getCode() {
+        return code;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getDisplayTitle() {
+        return displayTitle;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public void setCode(String code) {
+        this.code = code;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setDisplayTitle(String displayTitle) {
+        this.displayTitle = displayTitle;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+}
+
+
+==================== src/main/java/com/ezeiza/cartelera/entity/SuccessionOrder.java ====================
+
+package com.ezeiza.cartelera.entity;
+
+import jakarta.persistence.*;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "succession_order")
+public class SuccessionOrder {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @OneToOne(optional = false)
+    @JoinColumn(name = "person_id", nullable = false)
+    private Person person;
+
+    @Column(nullable = false)
+    private Integer orderNumber;
+
+    private boolean active = true;
+
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
+
+    public SuccessionOrder() {
+    }
+
+    public SuccessionOrder(Person person, Integer orderNumber) {
+        this.person = person;
+        this.orderNumber = orderNumber;
+        this.active = true;
+    }
+
+    @PrePersist
+    public void prePersist() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public Person getPerson() {
+        return person;
+    }
+
+    public Integer getOrderNumber() {
+        return orderNumber;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public void setPerson(Person person) {
+        this.person = person;
+    }
+
+    public void setOrderNumber(Integer orderNumber) {
+        this.orderNumber = orderNumber;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+}
+
+
+==================== src/main/java/com/ezeiza/cartelera/entity/DisplayPublished.java ====================
+
+package com.ezeiza.cartelera.entity;
+
+import jakarta.persistence.*;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "display_published")
+public class DisplayPublished {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private Long personId;
+
+    private String responsibleName;
+
+    private String responsiblePosition;
+
+    private String plantName;
+
+    private String mainTitle;
+
+    private LocalDateTime publishedAt;
+
+    public DisplayPublished() {
+    }
+
+    public DisplayPublished(Long personId,
+                            String responsibleName,
+                            String responsiblePosition,
+                            String plantName,
+                            String mainTitle) {
+        this.personId = personId;
+        this.responsibleName = responsibleName;
+        this.responsiblePosition = responsiblePosition;
+        this.plantName = plantName;
+        this.mainTitle = mainTitle;
+        this.publishedAt = LocalDateTime.now();
+    }
+
+    @PrePersist
+    public void prePersist() {
+        if (publishedAt == null) {
+            publishedAt = LocalDateTime.now();
+        }
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public Long getPersonId() {
+        return personId;
+    }
+
+    public String getResponsibleName() {
+        return responsibleName;
+    }
+
+    public String getResponsiblePosition() {
+        return responsiblePosition;
+    }
+
+    public String getPlantName() {
+        return plantName;
+    }
+
+    public String getMainTitle() {
+        return mainTitle;
+    }
+
+    public LocalDateTime getPublishedAt() {
+        return publishedAt;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public void setPersonId(Long personId) {
+        this.personId = personId;
+    }
+
+    public void setResponsibleName(String responsibleName) {
+        this.responsibleName = responsibleName;
+    }
+
+    public void setResponsiblePosition(String responsiblePosition) {
+        this.responsiblePosition = responsiblePosition;
+    }
+
+    public void setPlantName(String plantName) {
+        this.plantName = plantName;
+    }
+
+    public void setMainTitle(String mainTitle) {
+        this.mainTitle = mainTitle;
+    }
+
+    public void setPublishedAt(LocalDateTime publishedAt) {
+        this.publishedAt = publishedAt;
+    }
+}
+
+
+==================== src/main/java/com/ezeiza/cartelera/entity/AuditLog.java ====================
+
+package com.ezeiza.cartelera.entity;
+
+import jakarta.persistence.*;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "audit_logs")
+public class AuditLog {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String username;
+
+    private String action;
+
+    private String entityName;
+
+    private Long entityId;
+
+    @Column(length = 1000)
+    private String description;
+
+    @Column(length = 1000)
+    private String oldValue;
+
+    @Column(length = 1000)
+    private String newValue;
+
+    private LocalDateTime createdAt;
+
+    public AuditLog() {
+    }
+
+    public AuditLog(String username,
+                    String action,
+                    String entityName,
+                    Long entityId,
+                    String description,
+                    String oldValue,
+                    String newValue) {
+        this.username = username;
+        this.action = action;
+        this.entityName = entityName;
+        this.entityId = entityId;
+        this.description = description;
+        this.oldValue = oldValue;
+        this.newValue = newValue;
+        this.createdAt = LocalDateTime.now();
+    }
+
+    @PrePersist
+    public void prePersist() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public String getAction() {
+        return action;
+    }
+
+    public String getEntityName() {
+        return entityName;
+    }
+
+    public Long getEntityId() {
+        return entityId;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public String getOldValue() {
+        return oldValue;
+    }
+
+    public String getNewValue() {
+        return newValue;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public void setAction(String action) {
+        this.action = action;
+    }
+
+    public void setEntityName(String entityName) {
+        this.entityName = entityName;
+    }
+
+    public void setEntityId(Long entityId) {
+        this.entityId = entityId;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public void setOldValue(String oldValue) {
+        this.oldValue = oldValue;
+    }
+
+    public void setNewValue(String newValue) {
+        this.newValue = newValue;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+}

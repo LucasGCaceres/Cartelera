@@ -4,14 +4,23 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "display_published")
+@Table(
+        name = "display_published",
+        indexes = {
+                @Index(name = "idx_display_published_plant_published_at", columnList = "plant_id, publishedAt")
+        }
+)
 public class DisplayPublished {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long personId;
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "plant_id", nullable = false)
+    private Plant plant;
+
+    private Long userId;
 
     private String responsibleName;
 
@@ -26,12 +35,14 @@ public class DisplayPublished {
     public DisplayPublished() {
     }
 
-    public DisplayPublished(Long personId,
+    public DisplayPublished(Plant plant,
+                            Long userId,
                             String responsibleName,
                             String responsiblePosition,
                             String plantName,
                             String mainTitle) {
-        this.personId = personId;
+        this.plant = plant;
+        this.userId = userId;
         this.responsibleName = responsibleName;
         this.responsiblePosition = responsiblePosition;
         this.plantName = plantName;
@@ -50,8 +61,12 @@ public class DisplayPublished {
         return id;
     }
 
-    public Long getPersonId() {
-        return personId;
+    public Plant getPlant() {
+        return plant;
+    }
+
+    public Long getUserId() {
+        return userId;
     }
 
     public String getResponsibleName() {
@@ -78,8 +93,12 @@ public class DisplayPublished {
         this.id = id;
     }
 
-    public void setPersonId(Long personId) {
-        this.personId = personId;
+    public void setPlant(Plant plant) {
+        this.plant = plant;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 
     public void setResponsibleName(String responsibleName) {

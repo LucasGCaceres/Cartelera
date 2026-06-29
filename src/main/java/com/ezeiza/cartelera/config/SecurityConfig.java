@@ -1,6 +1,6 @@
 package com.ezeiza.cartelera.config;
 
-import com.ezeiza.cartelera.service.AppUserDetailsService;
+import com.ezeiza.cartelera.service.auth.AppUserDetailsService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -34,27 +34,29 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
+                        .requestMatchers(
+                                "/",
+                                "/display",
+                                "/display/**",
+                                "/assets/**",
+                                "/favicon.ico",
+                                "/vite.svg",
+                                "/icons.svg",
+                                "/*.svg"
+                        ).permitAll()
+
                         .requestMatchers("/api/auth/login").permitAll()
-                        .requestMatchers("/api/auth/register").permitAll()
-                        .requestMatchers("/api/display/published").permitAll()
+
+                        .requestMatchers("/api/public/**").permitAll()
 
                         .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/auth/logout").authenticated()
 
-                        .requestMatchers(HttpMethod.GET, "/api/admin/state").hasAnyRole("ADMIN", "OPERADOR")
-                        .requestMatchers(HttpMethod.GET, "/api/audit-logs").hasRole("ADMIN")
+                        .requestMatchers("/app/**").authenticated()
 
-                        .requestMatchers(HttpMethod.POST, "/api/persons").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/persons/**").hasRole("ADMIN")
-
-                        .requestMatchers(HttpMethod.PATCH, "/api/persons/*/availability").hasAnyRole("ADMIN", "OPERADOR")
-                        .requestMatchers(HttpMethod.POST, "/api/persons/*/move-up").hasAnyRole("ADMIN", "OPERADOR")
-                        .requestMatchers(HttpMethod.POST, "/api/persons/*/move-down").hasAnyRole("ADMIN", "OPERADOR")
-                        .requestMatchers(HttpMethod.POST, "/api/display/publish").hasAnyRole("ADMIN", "OPERADOR")
-
-                        .requestMatchers(HttpMethod.GET, "/api/users").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/users").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PATCH, "/api/users/**").hasRole("ADMIN")
+                        .requestMatchers("/api/plants/**").authenticated()
+                        .requestMatchers("/api/users/global/**").authenticated()
+                        .requestMatchers("/api/audit-logs/global").authenticated()
 
                         .anyRequest().authenticated()
                 );
@@ -83,13 +85,13 @@ public class SecurityConfig {
         configuration.setAllowedMethods(List.of(
                 "GET",
                 "POST",
+                "PUT",
                 "PATCH",
                 "DELETE",
                 "OPTIONS"
         ));
 
         configuration.setAllowedHeaders(List.of("*"));
-
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

@@ -1,0 +1,204 @@
+﻿
+
+==================== src/main/java/com/ezeiza/cartelera/dto/AdminStateResponse.java ====================
+
+package com.ezeiza.cartelera.dto;
+
+import java.util.List;
+
+public record AdminStateResponse(
+        PersonResponse currentResponsible,
+        List<SuccessionItemResponse> successionList,
+        PublishedDisplayResponse publishedDisplay
+) {
+}
+
+
+==================== src/main/java/com/ezeiza/cartelera/dto/ApiMessageResponse.java ====================
+
+package com.ezeiza.cartelera.dto;
+
+public record ApiMessageResponse(
+        Boolean success,
+        String message
+) {
+}
+
+
+==================== src/main/java/com/ezeiza/cartelera/dto/AuditLogResponse.java ====================
+
+package com.ezeiza.cartelera.dto;
+
+public record AuditLogResponse(
+        Long id,
+        String username,
+        String action,
+        String entityName,
+        Long entityId,
+        String description,
+        String oldValue,
+        String newValue,
+        String createdAt
+) {
+}
+
+
+==================== src/main/java/com/ezeiza/cartelera/dto/AuthUserResponse.java ====================
+
+package com.ezeiza.cartelera.dto;
+
+public record AuthUserResponse(
+        Long id,
+        String username,
+        String fullName,
+        String role
+) {
+}
+
+
+==================== src/main/java/com/ezeiza/cartelera/dto/AvailabilityRequest.java ====================
+
+package com.ezeiza.cartelera.dto;
+
+public record AvailabilityRequest(
+        Boolean available
+) {
+}
+
+
+==================== src/main/java/com/ezeiza/cartelera/dto/CreatePersonRequest.java ====================
+
+package com.ezeiza.cartelera.dto;
+
+public record CreatePersonRequest(
+        String firstName,
+        String lastName,
+        String position
+) {
+}
+
+
+==================== src/main/java/com/ezeiza/cartelera/dto/CreateUserRequest.java ====================
+
+package com.ezeiza.cartelera.dto;
+
+public record CreateUserRequest(
+        String username,
+        String password,
+        String fullName,
+        String role
+) {
+}
+
+
+==================== src/main/java/com/ezeiza/cartelera/dto/LoginRequest.java ====================
+
+package com.ezeiza.cartelera.dto;
+
+public record LoginRequest(
+        String username,
+        String password
+) {
+}
+
+
+==================== src/main/java/com/ezeiza/cartelera/dto/PersonResponse.java ====================
+
+package com.ezeiza.cartelera.dto;
+
+public record PersonResponse(
+        Long id,
+        String firstName,
+        String lastName,
+        String fullName,
+        String position,
+        Boolean available,
+        Boolean active
+) {
+}
+
+
+==================== src/main/java/com/ezeiza/cartelera/dto/PublishedDisplayResponse.java ====================
+
+package com.ezeiza.cartelera.dto;
+
+public record PublishedDisplayResponse(
+        Long id,
+        Long personId,
+        String responsibleName,
+        String responsiblePosition,
+        String plantName,
+        String mainTitle,
+        String publishedAt
+) {
+}
+
+
+==================== src/main/java/com/ezeiza/cartelera/dto/RegisterRequest.java ====================
+
+package com.ezeiza.cartelera.dto;
+
+public record RegisterRequest(
+        String username,
+        String password,
+        String fullName
+) {
+}
+
+
+==================== src/main/java/com/ezeiza/cartelera/dto/ResetPasswordRequest.java ====================
+
+package com.ezeiza.cartelera.dto;
+
+public record ResetPasswordRequest(
+        String password
+) {
+}
+
+
+==================== src/main/java/com/ezeiza/cartelera/dto/SuccessionItemResponse.java ====================
+
+package com.ezeiza.cartelera.dto;
+
+public record SuccessionItemResponse(
+        Long id,
+        Integer orderNumber,
+        PersonResponse person
+) {
+}
+
+
+==================== src/main/java/com/ezeiza/cartelera/dto/UpdateUserRoleRequest.java ====================
+
+package com.ezeiza.cartelera.dto;
+
+public record UpdateUserRoleRequest(
+        String role
+) {
+}
+
+
+==================== src/main/java/com/ezeiza/cartelera/dto/UpdateUserStatusRequest.java ====================
+
+package com.ezeiza.cartelera.dto;
+
+public record UpdateUserStatusRequest(
+        Boolean active
+) {
+}
+
+
+==================== src/main/java/com/ezeiza/cartelera/dto/UserResponse.java ====================
+
+package com.ezeiza.cartelera.dto;
+
+public record UserResponse(
+        Long id,
+        String username,
+        String fullName,
+        String role,
+        Boolean active,
+        String createdAt,
+        String updatedAt
+) {
+}

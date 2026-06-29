@@ -4,16 +4,25 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "succession_order")
+@Table(
+        name = "succession_orders",
+        indexes = {
+                @Index(name = "idx_succession_orders_plant_order", columnList = "plant_id, orderNumber")
+        }
+)
 public class SuccessionOrder {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(optional = false)
-    @JoinColumn(name = "person_id", nullable = false)
-    private Person person;
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "plant_id", nullable = false)
+    private Plant plant;
+
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "plant_member_id", nullable = false)
+    private PlantMember plantMember;
 
     @Column(nullable = false)
     private Integer orderNumber;
@@ -27,8 +36,9 @@ public class SuccessionOrder {
     public SuccessionOrder() {
     }
 
-    public SuccessionOrder(Person person, Integer orderNumber) {
-        this.person = person;
+    public SuccessionOrder(Plant plant, PlantMember plantMember, Integer orderNumber) {
+        this.plant = plant;
+        this.plantMember = plantMember;
         this.orderNumber = orderNumber;
         this.active = true;
     }
@@ -48,8 +58,12 @@ public class SuccessionOrder {
         return id;
     }
 
-    public Person getPerson() {
-        return person;
+    public Plant getPlant() {
+        return plant;
+    }
+
+    public PlantMember getPlantMember() {
+        return plantMember;
     }
 
     public Integer getOrderNumber() {
@@ -72,8 +86,12 @@ public class SuccessionOrder {
         this.id = id;
     }
 
-    public void setPerson(Person person) {
-        this.person = person;
+    public void setPlant(Plant plant) {
+        this.plant = plant;
+    }
+
+    public void setPlantMember(PlantMember plantMember) {
+        this.plantMember = plantMember;
     }
 
     public void setOrderNumber(Integer orderNumber) {

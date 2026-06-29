@@ -7,5 +7,7 @@ import java.util.Optional;
 
 public interface DisplayPublishedRepository extends JpaRepository<DisplayPublished, Long> {
 
-    Optional<DisplayPublished> findTopByOrderByIdDesc();
+    Optional<DisplayPublished> findTopByPlant_CodeOrderByPublishedAtDesc(String plantCode);
+
+    Optional<DisplayPublished> findTopByPlant_CodeOrderByIdDesc(String plantCode);
 }

@@ -9,17 +9,35 @@ import java.util.Optional;
 
 public interface SuccessionOrderRepository extends JpaRepository<SuccessionOrder, Long> {
 
-    List<SuccessionOrder> findByActiveTrueOrderByOrderNumberAsc();
+    List<SuccessionOrder> findByPlant_CodeAndActiveTrueOrderByOrderNumberAsc(String plantCode);
 
-    Optional<SuccessionOrder> findByPersonId(Long personId);
+    List<SuccessionOrder> findByPlant_CodeOrderByOrderNumberAsc(String plantCode);
 
-    Optional<SuccessionOrder> findByPersonIdAndActiveTrue(Long personId);
+    Optional<SuccessionOrder> findByPlant_CodeAndPlantMember_Id(
+            String plantCode,
+            Long plantMemberId
+    );
 
-    Optional<SuccessionOrder> findByOrderNumberAndActiveTrue(Integer orderNumber);
+    Optional<SuccessionOrder> findByPlant_CodeAndPlantMember_IdAndActiveTrue(
+            String plantCode,
+            Long plantMemberId
+    );
 
-    @Query("select coalesce(max(s.orderNumber), 0) from SuccessionOrder s where s.active = true")
-    Integer findMaxActiveOrderNumber();
+    Optional<SuccessionOrder> findByPlant_CodeAndOrderNumberAndActiveTrue(
+            String plantCode,
+            Integer orderNumber
+    );
 
-    @Query("select coalesce(max(s.orderNumber), 0) from SuccessionOrder s")
-    Integer findMaxOrderNumber();
+    boolean existsByPlant_CodeAndPlantMember_IdAndActiveTrue(
+            String plantCode,
+            Long plantMemberId
+    );
+
+    @Query("""
+            select coalesce(max(s.orderNumber), 0)
+            from SuccessionOrder s
+            where s.active = true
+              and s.plant.code = :plantCode
+            """)
+    Integer findMaxActiveOrderNumberByPlantCode(String plantCode);
 }
