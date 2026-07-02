@@ -1,0 +1,654 @@
+﻿import { useEffect, useMemo, useState } from "react";
+import Topbar from "../components/Topbar.jsx";
+import {
+    addMemberToSuccession,
+    addPlantMember,
+    getPlantAdminState,
+    getPlantMembers,
+    getPlantUsers,
+    moveSuccessionMemberDown,
+    moveSuccessionMemberUp,
+    publishPlantDisplay,
+    removeMemberFromSuccession,
+    removePlantMember,
+    updatePlantMemberAvailability,
+} from "../api/carteleraApi.js";
+
+function AdminPage({
+                       activeRoute,
+                       onNavigate,
+                       currentUser,
+                       onLogout,
+                       selectedPlantCode,
+                       onPlantChange,
+                   }) {
+    const [adminState, setAdminState] = useState({
+        plant: null,
+        currentUserRole: null,
+        currentResponsible: null,
+        successionList: [],
+        publishedDisplay: null,
+    });
+
+    const [plantUsers, setPlantUsers] = useState([]);
+    const [members, setMembers] = useState([]);
+
+    const [memberForm, setMemberForm] = useState({
+        userId: "",
+        position: "",
+    });
+
+    const [loading, setLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState(false);
+    const [error, setError] = useState("");
+
+    const plantCode =
+        selectedPlantCode || currentUser?.plants?.[0]?.code || "ezeiza";
+
+    const currentUserRole = adminState.currentUserRole;
+    const isPlatformAdmin = Boolean(currentUser?.platformAdmin);
+    const isPlantAdmin = isPlatformAdmin || currentUserRole === "ADMIN";
+    const isPlantOperator = currentUserRole === "OPERADOR";
+
+    const canAdminPlant = isPlantAdmin;
+    const canOperatePlant = isPlantAdmin || isPlantOperator;
+
+    const successionList = adminState.successionList || [];
+    const currentResponsible = adminState.currentResponsible;
+    const publishedDisplay = adminState.publishedDisplay;
+
+    const successionMemberIds = useMemo(() =__GT__ {
+        return new Set(
+            successionList
+                .map((item) =__GT__ item.member?.id)
+                .filter((id) =__GT__ id !== null && id !== undefined)
+        );
+    }, [successionList]);
+
+    const membersOutsideSuccession = useMemo(() =__GT__ {
+        return members.filter((member) =__GT__ !successionMemberIds.has(member.id));
+    }, [members, successionMemberIds]);
+
+    const availableUsersToAdd = useMemo(() =__GT__ {
+        const activeMemberUserIds = new Set(
+            members
+                .filter((member) =__GT__ member.active)
+                .map((member) =__GT__ member.userId)
+        );
+
+        return plantUsers
+            .filter((user) =__GT__ user.active)
+            .filter((user) =__GT__ !activeMemberUserIds.has(user.userId));
+    }, [plantUsers, members]);
+
+    const previewUserId = currentResponsible?.userId ?? null;
+    const publishedUserId = publishedDisplay?.userId ?? null;
+
+    const hasInitialPublication = Boolean(publishedDisplay);
+    const hasPendingChanges =
+        hasInitialPublication && previewUserId !== publishedUserId;
+
+    const canPublish =
+        canOperatePlant && (!hasInitialPublication || hasPendingChanges);
+
+    async function loadAllData() {
+        if (!plantCode) {
+            return;
+        }
+
+        try {
+            setError("");
+
+            const [stateData, usersData, membersData] = await Promise.all([
+                getPlantAdminState(plantCode),
+                getPlantUsers(plantCode),
+                getPlantMembers(plantCode),
+            ]);
+
+            setAdminState(
+                stateData || {
+                    plant: null,
+                    currentUserRole: null,
+                    currentResponsible: null,
+                    successionList: [],
+                    publishedDisplay: null,
+                }
+            );
+
+            setPlantUsers(usersData || []);
+            setMembers(membersData || []);
+        } catch (err) {
+            setError(err.message || "No se pudo cargar el estado del panel.");
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function reloadStateOnly() {
+        try {
+            const [stateData, membersData] = await Promise.all([
+                getPlantAdminState(plantCode),
+                getPlantMembers(plantCode),
+            ]);
+
+            setAdminState(
+                stateData || {
+                    plant: null,
+                    currentUserRole: null,
+                    currentResponsible: null,
+                    successionList: [],
+                    publishedDisplay: null,
+                }
+            );
+
+            setMembers(membersData || []);
+        } catch (err) {
+            setError(err.message || "No se pudo actualizar el panel.");
+            console.error(err);
+        }
+    }
+
+    useEffect(() =__GT__ {
+        setLoading(true);
+        setMemberForm({
+            userId: "",
+            position: "",
+        });
+
+        loadAllData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [plantCode]);
+
+    function handleMemberFormChange(event) {
+        const { name, value } = event.target;
+
+        setMemberForm((current) =__GT__ ({
+            ...current,
+            [name]: value,
+        }));
+    }
+
+    async function handleAddMember(event) {
+        event.preventDefault();
+
+        if (!memberForm.userId) {
+            setError("SeleccionÃ¡ un usuario para agregar como responsable operativo.");
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await addPlantMember(
+                plantCode,
+                Number(memberForm.userId),
+                memberForm.position.trim()
+            );
+
+            setMemberForm({
+                userId: "",
+                position: "",
+            });
+
+            await loadAllData();
+        } catch (err) {
+            setError(err.message || "No se pudo agregar el miembro de planta.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleAddToSuccession(memberId) {
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await addMemberToSuccession(plantCode, memberId);
+            await reloadStateOnly();
+        } catch (err) {
+            setError(err.message || "No se pudo agregar a la sucesiÃ³n.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleAvailabilityChange(memberId, available) {
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await updatePlantMemberAvailability(plantCode, memberId, available);
+            await reloadStateOnly();
+        } catch (err) {
+            setError(err.message || "No se pudo actualizar la disponibilidad.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleMoveUp(memberId) {
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await moveSuccessionMemberUp(plantCode, memberId);
+            await reloadStateOnly();
+        } catch (err) {
+            setError(err.message || "No se pudo subir en la lista.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleMoveDown(memberId) {
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await moveSuccessionMemberDown(plantCode, memberId);
+            await reloadStateOnly();
+        } catch (err) {
+            setError(err.message || "No se pudo bajar en la lista.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleRemoveFromSuccession(member) {
+        const confirmed = window.confirm(
+            `Â¿Seguro que querÃ©s quitar a ${member.fullName} de la sucesiÃ³n?`
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await removeMemberFromSuccession(plantCode, member.id);
+            await reloadStateOnly();
+        } catch (err) {
+            setError(err.message || "No se pudo quitar de la sucesiÃ³n.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleRemoveMember(member) {
+        const confirmed = window.confirm(
+            `Â¿Seguro que querÃ©s quitar a ${member.fullName} como miembro operativo de esta planta?`
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await removePlantMember(plantCode, member.id);
+            await loadAllData();
+        } catch (err) {
+            setError(err.message || "No se pudo quitar el miembro de planta.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handlePublishDisplay() {
+        const confirmed = window.confirm(
+            "Â¿ConfirmÃ¡s que querÃ©s sincronizar la cartelera con el responsable resultante actual?"
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await publishPlantDisplay(plantCode);
+            await reloadStateOnly();
+        } catch (err) {
+            setError(err.message || "No se pudo sincronizar la cartelera.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    if (loading) {
+        return (
+            __LT__div className="app-shell"__GT__
+                __LT__div className="card"__GT__Cargando panel...__LT__/div__GT__
+            __LT__/div__GT__
+        );
+    }
+
+    return (
+        __LT__div className="app-shell"__GT__
+            __LT__Topbar
+                subtitle={adminState.plant?.displayName || "Panel operativo"}
+                activeRoute={activeRoute}
+                onNavigate={onNavigate}
+                currentUser={currentUser}
+                onLogout={onLogout}
+                selectedPlantCode={plantCode}
+                onPlantChange={onPlantChange}
+            /__GT__
+
+            {error && __LT__div className="alert alert-error"__GT__{error}__LT__/div__GT__}
+
+            {!canOperatePlant && (
+                __LT__div className="alert alert-warning"__GT__
+                    No tenÃ©s permisos operativos en esta planta.
+                __LT__/div__GT__
+            )}
+
+            {!hasInitialPublication && (
+                __LT__div className="alert alert-warning"__GT__
+                    __LT__strong__GT__Cartelera sin publicaciÃ³n inicial.__LT__/strong__GT__{" "}
+                    TodavÃ­a no se sincronizÃ³ la cartelera de esta planta.
+                __LT__/div__GT__
+            )}
+
+            {hasPendingChanges && (
+                __LT__div className="alert alert-warning"__GT__
+                    __LT__strong__GT__Hay cambios pendientes sin publicar.__LT__/strong__GT__{" "}
+                    La vista previa actual no coincide con la cartelera publicada.
+                __LT__/div__GT__
+            )}
+
+            __LT__section className="grid two-columns"__GT__
+                __LT__div className="card"__GT__
+                    __LT__p className="eyebrow"__GT__Vista previa__LT__/p__GT__
+                    __LT__h3__GT__Responsable resultante__LT__/h3__GT__
+
+                    {currentResponsible ? (
+                        __LT____GT__
+                            __LT__p className="responsible-name"__GT__{currentResponsible.fullName}__LT__/p__GT__
+                            __LT__p__GT__{currentResponsible.position || "Sin cargo informado"}__LT__/p__GT__
+                        __LT__/__GT__
+                    ) : (
+                        __LT____GT__
+                            __LT__p className="responsible-name"__GT__No hay responsable disponible__LT__/p__GT__
+                            __LT__p__GT__MarcÃ¡ al menos un miembro de la sucesiÃ³n como disponible.__LT__/p__GT__
+                        __LT__/__GT__
+                    )}
+                __LT__/div__GT__
+
+                __LT__div className="card"__GT__
+                    __LT__p className="eyebrow"__GT__Cartelera publicada__LT__/p__GT__
+                    __LT__h3__GT__Estado publicado__LT__/h3__GT__
+
+                    {publishedDisplay ? (
+                        publishedDisplay.responsibleName ? (
+                            __LT____GT__
+                                __LT__p className="responsible-name"__GT__
+                                    {publishedDisplay.responsibleName}
+                                __LT__/p__GT__
+                                __LT__p__GT__
+                                    {publishedDisplay.responsiblePosition ||
+                                        "Sin cargo informado"}
+                                __LT__/p__GT__
+                            __LT__/__GT__
+                        ) : (
+                            __LT____GT__
+                                __LT__p className="responsible-name"__GT__Sin responsable publicado__LT__/p__GT__
+                                __LT__p__GT__La Ãºltima publicaciÃ³n no tenÃ­a responsable disponible.__LT__/p__GT__
+                            __LT__/__GT__
+                        )
+                    ) : (
+                        __LT____GT__
+                            __LT__p className="responsible-name"__GT__Sin publicaciÃ³n inicial__LT__/p__GT__
+                            __LT__p__GT__PresionÃ¡ sincronizar para publicar por primera vez.__LT__/p__GT__
+                        __LT__/__GT__
+                    )}
+
+                    __LT__button
+                        type="button"
+                        onClick={handlePublishDisplay}
+                        disabled={actionLoading || !canPublish}
+                    __GT__
+                        {actionLoading
+                            ? "Sincronizando..."
+                            : !hasInitialPublication
+                                ? "Publicar cartelera"
+                                : hasPendingChanges
+                                    ? "Sincronizar cartelera"
+                                    : "Cartelera actualizada"}
+                    __LT__/button__GT__
+                __LT__/div__GT__
+            __LT__/section__GT__
+
+            {canAdminPlant && (
+                __LT__section className="card"__GT__
+                    __LT__p className="eyebrow"__GT__Responsables operativos__LT__/p__GT__
+                    __LT__h3__GT__Agregar miembro de planta__LT__/h3__GT__
+
+                    __LT__form onSubmit={handleAddMember} className="form-grid"__GT__
+                        __LT__label__GT__
+                            Usuario
+                            __LT__select
+                                name="userId"
+                                value={memberForm.userId}
+                                onChange={handleMemberFormChange}
+                                disabled={actionLoading}
+                            __GT__
+                                __LT__option value=""__GT__Seleccionar usuario...__LT__/option__GT__
+                                {availableUsersToAdd.map((user) =__GT__ (
+                                    __LT__option key={user.userId} value={user.userId}__GT__
+                                        {user.fullName} â€” {user.corporateEmail || user.username}
+                                    __LT__/option__GT__
+                                ))}
+                            __LT__/select__GT__
+                        __LT__/label__GT__
+
+                        __LT__label__GT__
+                            Cargo en esta planta
+                            __LT__input
+                                name="position"
+                                value={memberForm.position}
+                                onChange={handleMemberFormChange}
+                                placeholder="Ej: Responsable operativo"
+                                disabled={actionLoading}
+                            /__GT__
+                        __LT__/label__GT__
+
+                        __LT__button
+                            type="submit"
+                            disabled={actionLoading || !memberForm.userId}
+                        __GT__
+                            {actionLoading ? "Guardando..." : "Agregar miembro"}
+                        __LT__/button__GT__
+                    __LT__/form__GT__
+
+                    {availableUsersToAdd.length === 0 && (
+                        __LT__p className="muted"__GT__
+                            No hay usuarios activos disponibles para agregar. CreÃ¡ usuarios
+                            desde la pantalla Usuarios.
+                        __LT__/p__GT__
+                    )}
+                __LT__/section__GT__
+            )}
+
+            __LT__section className="card"__GT__
+                __LT__p className="eyebrow"__GT__SucesiÃ³n__LT__/p__GT__
+                __LT__h3__GT__Lista de sucesiÃ³n y disponibilidad__LT__/h3__GT__
+
+                {successionList.length === 0 ? (
+                    __LT__p__GT__TodavÃ­a no hay miembros en la sucesiÃ³n de esta planta.__LT__/p__GT__
+                ) : (
+                    __LT__div className="table-wrapper"__GT__
+                        __LT__table__GT__
+                            __LT__thead__GT__
+                            __LT__tr__GT__
+                                __LT__th__GT__Orden__LT__/th__GT__
+                                __LT__th__GT__Nombre__LT__/th__GT__
+                                __LT__th__GT__Email__LT__/th__GT__
+                                __LT__th__GT__Cargo__LT__/th__GT__
+                                __LT__th__GT__Disponible__LT__/th__GT__
+                                __LT__th__GT__Responsable__LT__/th__GT__
+                                __LT__th__GT__Acciones__LT__/th__GT__
+                            __LT__/tr__GT__
+                            __LT__/thead__GT__
+
+                            __LT__tbody__GT__
+                            {successionList.map((item) =__GT__ {
+                                const member = item.member;
+
+                                if (!member) {
+                                    return null;
+                                }
+
+                                return (
+                                    __LT__tr key={item.id}__GT__
+                                        __LT__td__GT__{item.orderNumber}__LT__/td__GT__
+                                        __LT__td__GT__{member.fullName}__LT__/td__GT__
+                                        __LT__td__GT__{member.corporateEmail || "-"}__LT__/td__GT__
+                                        __LT__td__GT__{member.position || "-"}__LT__/td__GT__
+                                        __LT__td__GT__
+                                            __LT__label className="inline-check"__GT__
+                                                __LT__input
+                                                    type="checkbox"
+                                                    checked={Boolean(member.available)}
+                                                    onChange={(event) =__GT__
+                                                        handleAvailabilityChange(
+                                                            member.id,
+                                                            event.target.checked
+                                                        )
+                                                    }
+                                                    disabled={actionLoading || !canOperatePlant}
+                                                /__GT__
+                                                {member.available ? "SÃ­" : "No"}
+                                            __LT__/label__GT__
+                                        __LT__/td__GT__
+                                        __LT__td__GT__
+                                            {item.currentResponsible ? (
+                                                __LT__span className="badge badge-success"__GT__SÃ­__LT__/span__GT__
+                                            ) : (
+                                                __LT__span className="badge"__GT__No__LT__/span__GT__
+                                            )}
+                                        __LT__/td__GT__
+                                        __LT__td__GT__
+                                            __LT__div className="action-row"__GT__
+                                                __LT__button
+                                                    type="button"
+                                                    onClick={() =__GT__ handleMoveUp(member.id)}
+                                                    disabled={
+                                                        actionLoading ||
+                                                        item.orderNumber === 1 ||
+                                                        !canOperatePlant
+                                                    }
+                                                __GT__
+                                                    Subir
+                                                __LT__/button__GT__
+
+                                                __LT__button
+                                                    type="button"
+                                                    onClick={() =__GT__ handleMoveDown(member.id)}
+                                                    disabled={
+                                                        actionLoading ||
+                                                        item.orderNumber === successionList.length ||
+                                                        !canOperatePlant
+                                                    }
+                                                __GT__
+                                                    Bajar
+                                                __LT__/button__GT__
+
+                                                {canAdminPlant && (
+                                                    __LT__button
+                                                        type="button"
+                                                        className="danger"
+                                                        onClick={() =__GT__
+                                                            handleRemoveFromSuccession(member)
+                                                        }
+                                                        disabled={actionLoading}
+                                                    __GT__
+                                                        Quitar
+                                                    __LT__/button__GT__
+                                                )}
+                                            __LT__/div__GT__
+                                        __LT__/td__GT__
+                                    __LT__/tr__GT__
+                                );
+                            })}
+                            __LT__/tbody__GT__
+                        __LT__/table__GT__
+                    __LT__/div__GT__
+                )}
+            __LT__/section__GT__
+
+            {canAdminPlant && (
+                __LT__section className="card"__GT__
+                    __LT__p className="eyebrow"__GT__Miembros fuera de sucesiÃ³n__LT__/p__GT__
+                    __LT__h3__GT__Agregar a la sucesiÃ³n__LT__/h3__GT__
+
+                    {membersOutsideSuccession.length === 0 ? (
+                        __LT__p__GT__No hay miembros activos fuera de la sucesiÃ³n.__LT__/p__GT__
+                    ) : (
+                        __LT__div className="table-wrapper"__GT__
+                            __LT__table__GT__
+                                __LT__thead__GT__
+                                __LT__tr__GT__
+                                    __LT__th__GT__Nombre__LT__/th__GT__
+                                    __LT__th__GT__Email__LT__/th__GT__
+                                    __LT__th__GT__Cargo__LT__/th__GT__
+                                    __LT__th__GT__Disponible__LT__/th__GT__
+                                    __LT__th__GT__Acciones__LT__/th__GT__
+                                __LT__/tr__GT__
+                                __LT__/thead__GT__
+
+                                __LT__tbody__GT__
+                                {membersOutsideSuccession.map((member) =__GT__ (
+                                    __LT__tr key={member.id}__GT__
+                                        __LT__td__GT__{member.fullName}__LT__/td__GT__
+                                        __LT__td__GT__{member.corporateEmail || "-"}__LT__/td__GT__
+                                        __LT__td__GT__{member.position || "-"}__LT__/td__GT__
+                                        __LT__td__GT__{member.available ? "SÃ­" : "No"}__LT__/td__GT__
+                                        __LT__td__GT__
+                                            __LT__div className="action-row"__GT__
+                                                __LT__button
+                                                    type="button"
+                                                    onClick={() =__GT__ handleAddToSuccession(member.id)}
+                                                    disabled={actionLoading}
+                                                __GT__
+                                                    Agregar a sucesiÃ³n
+                                                __LT__/button__GT__
+
+                                                __LT__button
+                                                    type="button"
+                                                    className="danger"
+                                                    onClick={() =__GT__ handleRemoveMember(member)}
+                                                    disabled={actionLoading}
+                                                __GT__
+                                                    Quitar miembro
+                                                __LT__/button__GT__
+                                            __LT__/div__GT__
+                                        __LT__/td__GT__
+                                    __LT__/tr__GT__
+                                ))}
+                                __LT__/tbody__GT__
+                            __LT__/table__GT__
+                        __LT__/div__GT__
+                    )}
+                __LT__/section__GT__
+            )}
+        __LT__/div__GT__
+    );
+}
+
+export default AdminPage;

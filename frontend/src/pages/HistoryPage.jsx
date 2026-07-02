@@ -1,69 +1,156 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Topbar from "../components/Topbar.jsx";
-import { getAuditLogs } from "../api/carteleraApi.js";
+import {
+    getGlobalAuditLogs,
+    getPlantAuditLogs,
+} from "../api/carteleraApi.js";
 import { formatDateTime } from "../utils/formatDateTime.js";
 import { translateAction } from "../utils/translateAction.js";
 
-function HistoryPage({ activeRoute, onNavigate, currentUser, onLogout }) {
+function HistoryPage({
+                         activeRoute,
+                         onNavigate,
+                         currentUser,
+                         onLogout,
+                         selectedPlantCode,
+                         onPlantChange,
+                     }) {
+    const plantCode =
+        selectedPlantCode || currentUser?.plants?.[0]?.code || "ezeiza";
+
     const [auditLogs, setAuditLogs] = useState([]);
+    const [scope, setScope] = useState("plant");
     const [loading, setLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState(false);
     const [error, setError] = useState("");
+
+    const isPlatformAdmin = Boolean(currentUser?.platformAdmin);
+
+    const currentPlantRole = useMemo(() => {
+        if (isPlatformAdmin) {
+            return "ADMIN";
+        }
+
+        return (
+            currentUser?.plants?.find((plant) => plant.code === plantCode)?.role ||
+            "Sin permisos"
+        );
+    }, [currentUser, isPlatformAdmin, plantCode]);
+
+    const canViewPlantHistory =
+        isPlatformAdmin || currentPlantRole === "ADMIN";
+
+    const canViewGlobalHistory = isPlatformAdmin;
 
     async function loadAuditLogs() {
         try {
             setError("");
-            const data = await getAuditLogs();
-            setAuditLogs(data);
+            setLoading(true);
+            setActionLoading(true);
+
+            if (scope === "global") {
+                if (!canViewGlobalHistory) {
+                    setAuditLogs([]);
+                    setError("No tenés permiso para ver el historial global.");
+                    return;
+                }
+
+                const data = await getGlobalAuditLogs();
+                setAuditLogs(data || []);
+                return;
+            }
+
+            if (!canViewPlantHistory) {
+                setAuditLogs([]);
+                setError("No tenés permiso para ver el historial de esta planta.");
+                return;
+            }
+
+            const data = await getPlantAuditLogs(plantCode);
+            setAuditLogs(data || []);
         } catch (err) {
-            setError("No se pudo cargar el historial.");
+            setError(err.message || "No se pudo cargar el historial.");
             console.error(err);
         } finally {
             setLoading(false);
+            setActionLoading(false);
         }
     }
 
     useEffect(() => {
         loadAuditLogs();
-    }, []);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [plantCode, scope]);
+
+    function handleScopeChange(event) {
+        setScope(event.target.value);
+    }
 
     return (
-        <main className="page">
+        <div className="app-shell">
             <Topbar
-                subtitle="Historial de movimientos"
+                subtitle={`Historial — ${scope === "global" ? "Global" : plantCode}`}
                 activeRoute={activeRoute}
                 onNavigate={onNavigate}
                 currentUser={currentUser}
                 onLogout={onLogout}
+                selectedPlantCode={plantCode}
+                onPlantChange={onPlantChange}
             />
 
-            {error && <div className="error-box">{error}</div>}
+            {error && <div className="alert alert-error">{error}</div>}
+
+            {!canViewPlantHistory && scope === "plant" && (
+                <div className="alert alert-warning">
+                    No tenés permisos para ver el historial de esta planta.
+                </div>
+            )}
+
+            {!canViewGlobalHistory && scope === "global" && (
+                <div className="alert alert-warning">
+                    No tenés permisos para ver el historial global.
+                </div>
+            )}
 
             <section className="card">
-                <div className="section-header">
-                    <div>
-                        <span className="eyebrow">Auditoría</span>
-                        <h2>Historial de movimientos</h2>
-                    </div>
+                <p className="eyebrow">Auditoría</p>
+                <h3>Historial de movimientos</h3>
 
-                    <button type="button" className="ghost-button" onClick={loadAuditLogs}>
-                        Actualizar
+                <div className="action-row">
+                    <label>
+                        Alcance{" "}
+                        <select value={scope} onChange={handleScopeChange}>
+                            <option value="plant">Planta seleccionada</option>
+                            {isPlatformAdmin && <option value="global">Global</option>}
+                        </select>
+                    </label>
+
+                    <button
+                        type="button"
+                        onClick={loadAuditLogs}
+                        disabled={actionLoading}
+                    >
+                        {actionLoading ? "Actualizando..." : "Actualizar"}
                     </button>
                 </div>
 
                 {loading ? (
-                    <p className="empty-message">Cargando historial...</p>
+                    <p>Cargando historial...</p>
                 ) : auditLogs.length === 0 ? (
-                    <p className="empty-message">Todavía no hay movimientos registrados.</p>
+                    <p>Todavía no hay movimientos registrados.</p>
                 ) : (
                     <div className="table-wrapper">
                         <table>
                             <thead>
                             <tr>
                                 <th>Fecha y hora</th>
+                                <th>Planta</th>
                                 <th>Usuario</th>
                                 <th>Acción</th>
                                 <th>Entidad</th>
                                 <th>Detalle</th>
+                                <th>Antes</th>
+                                <th>Después</th>
                             </tr>
                             </thead>
 
@@ -71,12 +158,17 @@ function HistoryPage({ activeRoute, onNavigate, currentUser, onLogout }) {
                             {auditLogs.map((log) => (
                                 <tr key={log.id}>
                                     <td>{formatDateTime(log.createdAt)}</td>
-                                    <td>{log.username}</td>
+                                    <td>{log.plantCode || "-"}</td>
+                                    <td>{log.username || "-"}</td>
                                     <td>
-                                        <span className="action-badge">{translateAction(log.action)}</span>
+                      <span className="badge badge-info">
+                        {translateAction(log.action)}
+                      </span>
                                     </td>
-                                    <td>{log.entityName}</td>
-                                    <td>{log.description}</td>
+                                    <td>{log.entityName || "-"}</td>
+                                    <td>{log.description || "-"}</td>
+                                    <td>{log.oldValue || "-"}</td>
+                                    <td>{log.newValue || "-"}</td>
                                 </tr>
                             ))}
                             </tbody>
@@ -84,7 +176,7 @@ function HistoryPage({ activeRoute, onNavigate, currentUser, onLogout }) {
                     </div>
                 )}
             </section>
-        </main>
+        </div>
     );
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { getPublicPlantPublishedDisplay } from "../api/carteleraApi.js";
 import "../styles/display.css";
 
@@ -9,7 +9,6 @@ const DISPLAY_BACKGROUNDS = [
 ];
 
 const DISPLAY_LOGO = "/assets/display/Logo_Gate.png";
-const DEFAULT_PLANT_CODE = "ezeiza";
 
 function getPlantCodeFromPath() {
     const path = window.location.pathname;
@@ -22,12 +21,6 @@ function getPlantCodeFromPath() {
     return null;
 }
 
-function getPlantNameFallback(plantCode) {
-    return String(plantCode || DEFAULT_PLANT_CODE)
-        .replaceAll("-", " ")
-        .toUpperCase();
-}
-
 function DisplayPage({
                          plantCode,
                          currentUser,
@@ -36,7 +29,7 @@ function DisplayPage({
                          canOpenPanel = false,
                          onOpenPanel,
                      }) {
-    const resolvedPlantCode = plantCode || getPlantCodeFromPath() || DEFAULT_PLANT_CODE;
+    const resolvedPlantCode = plantCode || getPlantCodeFromPath() || "ezeiza";
 
     const [publishedDisplay, setPublishedDisplay] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -50,6 +43,7 @@ function DisplayPage({
     async function loadPublishedDisplay() {
         try {
             const data = await getPublicPlantPublishedDisplay(resolvedPlantCode);
+
             setPublishedDisplay(data);
             setConnectionError(false);
         } catch (err) {
@@ -71,41 +65,41 @@ function DisplayPage({
             window.clearTimeout(controlsTimeoutRef.current);
         }
 
-        controlsTimeoutRef.current = window.setTimeout(() => {
+        controlsTimeoutRef.current = window.setTimeout(() =__GT__ {
             setShowControls(false);
         }, 5000);
     }
 
-    useEffect(() => {
-        DISPLAY_BACKGROUNDS.forEach((src) => {
+    useEffect(() =__GT__ {
+        DISPLAY_BACKGROUNDS.forEach((src) =__GT__ {
             const image = new Image();
             image.src = src;
         });
     }, []);
 
-    useEffect(() => {
+    useEffect(() =__GT__ {
         setLoading(true);
         loadPublishedDisplay();
 
-        const displayIntervalId = window.setInterval(() => {
+        const displayIntervalId = window.setInterval(() =__GT__ {
             loadPublishedDisplay();
         }, 5000);
 
-        return () => window.clearInterval(displayIntervalId);
+        return () =__GT__ window.clearInterval(displayIntervalId);
     }, [resolvedPlantCode]);
 
-    useEffect(() => {
-        const clockIntervalId = window.setInterval(() => {
+    useEffect(() =__GT__ {
+        const clockIntervalId = window.setInterval(() =__GT__ {
             setNow(new Date());
         }, 1000);
 
-        return () => window.clearInterval(clockIntervalId);
+        return () =__GT__ window.clearInterval(clockIntervalId);
     }, []);
 
-    useEffect(() => {
-        const backgroundIntervalId = window.setInterval(() => {
-            setBackgroundIndex((current) => {
-                if (DISPLAY_BACKGROUNDS.length <= 1) {
+    useEffect(() =__GT__ {
+        const backgroundIntervalId = window.setInterval(() =__GT__ {
+            setBackgroundIndex((current) =__GT__ {
+                if (DISPLAY_BACKGROUNDS.length __LT__= 1) {
                     return 0;
                 }
 
@@ -113,16 +107,16 @@ function DisplayPage({
             });
         }, 30000);
 
-        return () => window.clearInterval(backgroundIntervalId);
+        return () =__GT__ window.clearInterval(backgroundIntervalId);
     }, []);
 
-    useEffect(() => {
+    useEffect(() =__GT__ {
         window.addEventListener("mousemove", showTemporaryControls);
         window.addEventListener("mousedown", showTemporaryControls);
         window.addEventListener("touchstart", showTemporaryControls);
         window.addEventListener("keydown", showTemporaryControls);
 
-        return () => {
+        return () =__GT__ {
             window.removeEventListener("mousemove", showTemporaryControls);
             window.removeEventListener("mousedown", showTemporaryControls);
             window.removeEventListener("touchstart", showTemporaryControls);
@@ -134,7 +128,7 @@ function DisplayPage({
         };
     }, [interactive, currentUser]);
 
-    const dateParts = useMemo(() => {
+    const dateParts = useMemo(() =__GT__ {
         const month = now
             .toLocaleDateString("es-AR", { month: "short" })
             .replace(".", "");
@@ -151,86 +145,74 @@ function DisplayPage({
     }, [now]);
 
     const backgroundImage = DISPLAY_BACKGROUNDS[backgroundIndex];
+
     const responsibleName = publishedDisplay?.responsibleName;
     const responsiblePosition =
         publishedDisplay?.responsiblePosition ||
         publishedDisplay?.mainTitle ||
         "Responsable de planta";
-    const plantName = publishedDisplay?.plantName || getPlantNameFallback(resolvedPlantCode);
+
+    const plantName =
+        publishedDisplay?.plantName ||
+        resolvedPlantCode.replaceAll("-", " ").toUpperCase();
 
     return (
-        <main
+        __LT__main
             className="display-page"
             style={{ backgroundImage: `url(${backgroundImage})` }}
             onMouseMove={showTemporaryControls}
             onMouseDown={showTemporaryControls}
             onTouchStart={showTemporaryControls}
-        >
-            <img className="display-logo" src={DISPLAY_LOGO} alt="Logo Gate Gourmet" />
+        __GT__
+            {DISPLAY_LOGO}
 
             {interactive && currentUser && showControls && (
-                <div className="display-session-controls">
+                __LT__div className="display-controls"__GT__
                     {canOpenPanel && (
-                        <button
-                            type="button"
-                            className="display-hidden-logout-button"
-                            onClick={() => onOpenPanel?.(resolvedPlantCode)}
-                        >
+                        __LT__button type="button" onClick={() =__GT__ onOpenPanel?.(resolvedPlantCode)}__GT__
                             Panel
-                        </button>
+                        __LT__/button__GT__
                     )}
 
-                    <button
-                        type="button"
-                        className="display-hidden-logout-button"
-                        onClick={onLogout}
-                    >
+                    __LT__button type="button" onClick={onLogout}__GT__
                         Salir
-                    </button>
-                </div>
+                    __LT__/button__GT__
+                __LT__/div__GT__
             )}
 
-            <section className="display-layout">
-                <div className="display-panel">
-                    <aside className="display-date-card" aria-label="Fecha actual">
-                        <span>{dateParts.month}</span>
-                        <strong>{dateParts.day}</strong>
-                        <span>{dateParts.year}</span>
-                    </aside>
+            __LT__section className="display-date"__GT__
+                __LT__span__GT__{dateParts.month}__LT__/span__GT__
+                __LT__strong__GT__{dateParts.day}__LT__/strong__GT__
+                __LT__span__GT__{dateParts.year}__LT__/span__GT__
+            __LT__/section__GT__
 
-                    <section className="display-responsible-card">
-                        <div className="display-plant-name">{plantName}</div>
+            __LT__section className="display-card"__GT__
+                __LT__p className="display-plant"__GT__{plantName}__LT__/p__GT__
 
-                        {connectionError && (
-                            <div className="display-connection-warning">
-                                Reconectando con el servidor...
-                            </div>
-                        )}
+                {connectionError && (
+                    __LT__p className="display-warning"__GT__Reconectando con el servidor...__LT__/p__GT__
+                )}
 
-                        {loading ? (
-                            <>
-                                <h1>Cargando...</h1>
-                                <p>Obteniendo cartelera publicada</p>
-                            </>
-                        ) : responsibleName ? (
-                            <>
-                                <h1>{responsibleName}</h1>
-                                <p>{responsiblePosition}</p>
-                            </>
-                        ) : (
-                            <>
-                                <h1>No hay responsable disponible</h1>
-                                <p>{publishedDisplay?.mainTitle || "Responsable de planta"}</p>
-                            </>
-                        )}
-                    </section>
-                </div>
-            </section>
+                {loading ? (
+                    __LT____GT__
+                        __LT__h2__GT__Cargando...__LT__/h2__GT__
+                        __LT__p__GT__Obteniendo cartelera publicada__LT__/p__GT__
+                    __LT__/__GT__
+                ) : responsibleName ? (
+                    __LT____GT__
+                        __LT__h2__GT__{responsibleName}__LT__/h2__GT__
+                        __LT__p__GT__{responsiblePosition}__LT__/p__GT__
+                    __LT__/__GT__
+                ) : (
+                    __LT____GT__
+                        __LT__h2__GT__No hay responsable disponible__LT__/h2__GT__
+                        __LT__p__GT__{publishedDisplay?.mainTitle || "Responsable de planta"}__LT__/p__GT__
+                    __LT__/__GT__
+                )}
+            __LT__/section__GT__
 
-            <section className="display-clock" aria-label="Hora actual">
-                {dateParts.time}
-            </section>
-        </main>
+            __LT__section className="display-clock"__GT__{dateParts.time}__LT__/section__GT__
+        __LT__/main__GT__
     );
 }
 

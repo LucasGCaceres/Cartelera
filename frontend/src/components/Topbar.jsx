@@ -1,42 +1,76 @@
-import LoginPage from "../pages/LoginPage.jsx";
+function Topbar({
+                    subtitle,
+                    activeRoute,
+                    onNavigate,
+                    currentUser,
+                    onLogout,
+                    selectedPlantCode,
+                    onPlantChange,
+                }) {
+    const plants = currentUser?.plants || [];
+    const isPlatformAdmin = Boolean(currentUser?.platformAdmin);
 
-function Topbar({ subtitle, activeRoute, onNavigate, currentUser, onLogout }) {
-    const isAdmin = currentUser?.role === "ADMIN";
+    const selectedPlant = plants.find((plant) => plant.code === selectedPlantCode);
+    const selectedRole = selectedPlant?.role || (isPlatformAdmin ? "ADMIN" : "Sin permisos");
+
+    const canViewUsers =
+        isPlatformAdmin || plants.some((plant) => plant.role === "ADMIN");
+
+    const canViewHistory = canViewUsers;
+
+    const effectivePlantCode = selectedPlantCode || plants[0]?.code || "ezeiza";
+
+    function handlePlantChange(event) {
+        onPlantChange?.(event.target.value);
+    }
 
     function openDisplay() {
-        window.open("/display", "_blank", "noopener,noreferrer");
+        window.open(`/display/${effectivePlantCode}`, "_blank", "noopener,noreferrer");
     }
 
     return (
         <header className="topbar">
             <div>
                 <h1>Cartelera responsable de planta</h1>
-                <p>{subtitle}</p>
+                {subtitle && <p>{subtitle}</p>}
             </div>
 
-            <nav className="topbar-actions" aria-label="Navegación principal">
+            <div className="topbar-actions">
+                {plants.length > 0 && (
+                    <label className="topbar-plant-selector">
+                        Planta{" "}
+                        <select value={effectivePlantCode} onChange={handlePlantChange}>
+                            {plants.map((plant) => (
+                                <option key={plant.code} value={plant.code}>
+                                    {plant.displayName || plant.name || plant.code}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                )}
+
                 <button
                     type="button"
-                    className={activeRoute === "admin" ? "nav-button active" : "nav-button"}
+                    className={`nav-button ${activeRoute === "admin" ? "active" : ""}`}
                     onClick={() => onNavigate("admin")}
                 >
                     Panel
                 </button>
 
-                {isAdmin && (
+                {canViewHistory && (
                     <button
                         type="button"
-                        className={activeRoute === "history" ? "nav-button active" : "nav-button"}
+                        className={`nav-button ${activeRoute === "history" ? "active" : ""}`}
                         onClick={() => onNavigate("history")}
                     >
                         Historial
                     </button>
                 )}
 
-                {isAdmin && (
+                {canViewUsers && (
                     <button
                         type="button"
-                        className={activeRoute === "users" ? "nav-button active" : "nav-button"}
+                        className={`nav-button ${activeRoute === "users" ? "active" : ""}`}
                         onClick={() => onNavigate("users")}
                     >
                         Usuarios
@@ -50,16 +84,20 @@ function Topbar({ subtitle, activeRoute, onNavigate, currentUser, onLogout }) {
                 >
                     Abrir cartelera
                 </button>
+            </div>
 
-                <div className="user-pill">
-                    <span>{currentUser?.fullName}</span>
-                    <strong>{currentUser?.role}</strong>
-                </div>
+            <div className="user-pill">
+                <span>{currentUser?.fullName || currentUser?.username || "Usuario"}</span>
+                <strong>{isPlatformAdmin ? "PLATFORM ADMIN" : selectedRole}</strong>
+            </div>
 
-                <button type="button" className="nav-button logout-button" onClick={onLogout}>
-                    Salir
-                </button>
-            </nav>
+            <button
+                type="button"
+                className="nav-button logout-button"
+                onClick={onLogout}
+            >
+                Salir
+            </button>
         </header>
     );
 }

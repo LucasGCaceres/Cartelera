@@ -1,0 +1,5065 @@
+﻿
+
+==================== pom.xml ====================
+
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>4.0.6</version>
+		<relativePath/> <!-- lookup parent from repository -->
+	</parent>
+	<groupId>com.ezeiza</groupId>
+	<artifactId>cartelera</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<name/>
+	<description/>
+	<url/>
+	<licenses>
+		<license/>
+	</licenses>
+	<developers>
+		<developer/>
+	</developers>
+	<scm>
+		<connection/>
+		<developerConnection/>
+		<tag/>
+		<url/>
+	</scm>
+	<properties>
+		<java.version>26</java.version>
+	</properties>
+	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-webmvc</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-webmvc-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.xerial</groupId>
+			<artifactId>sqlite-jdbc</artifactId>
+			<version>3.53.1.0</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.hibernate.orm</groupId>
+			<artifactId>hibernate-community-dialects</artifactId>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>
+
+
+==================== src\main\java\com\ezeiza\cartelera\CarteleraApplication.java ====================
+
+package com.ezeiza.cartelera;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class CarteleraApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(CarteleraApplication.class, args);
+	}
+
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\config\DataInitializer.java ====================
+
+package com.ezeiza.cartelera.config;
+
+import com.ezeiza.cartelera.entity.AppUser;
+import com.ezeiza.cartelera.entity.Plant;
+import com.ezeiza.cartelera.entity.PlantRole;
+import com.ezeiza.cartelera.entity.UserPlantRole;
+import com.ezeiza.cartelera.repository.AppUserRepository;
+import com.ezeiza.cartelera.repository.PlantRepository;
+import com.ezeiza.cartelera.repository.UserPlantRoleRepository;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+@Component
+public class DataInitializer implements CommandLineRunner {
+
+    private final AppUserRepository appUserRepository;
+    private final PlantRepository plantRepository;
+    private final UserPlantRoleRepository userPlantRoleRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    public DataInitializer(AppUserRepository appUserRepository,
+                           PlantRepository plantRepository,
+                           UserPlantRoleRepository userPlantRoleRepository,
+                           PasswordEncoder passwordEncoder) {
+        this.appUserRepository = appUserRepository;
+        this.plantRepository = plantRepository;
+        this.userPlantRoleRepository = userPlantRoleRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    @Override
+    @Transactional
+    public void run(String... args) {
+        Plant ezeiza = createPlantIfNotExists(
+                "ezeiza",
+                "Ezeiza",
+                "PLANTA EZEIZA",
+                "Responsable de planta",
+                1
+        );
+
+        Plant aeroparque = createPlantIfNotExists(
+                "aeroparque",
+                "Aeroparque",
+                "PLANTA AEROPARQUE",
+                "Responsable de planta",
+                2
+        );
+
+        Plant theProLaundry = createPlantIfNotExists(
+                "the-pro-laundry",
+                "The Pro Laundry",
+                "THE PRO LAUNDRY",
+                "Responsable de planta",
+                3
+        );
+
+        AppUser admin = createAdminIfNotExists();
+
+        assignPlantRoleIfNotExists(admin, ezeiza, PlantRole.ADMIN);
+        assignPlantRoleIfNotExists(admin, aeroparque, PlantRole.ADMIN);
+        assignPlantRoleIfNotExists(admin, theProLaundry, PlantRole.ADMIN);
+    }
+
+    private Plant createPlantIfNotExists(String code,
+                                         String name,
+                                         String displayName,
+                                         String displayTitle,
+                                         Integer sortOrder) {
+        return plantRepository.findByCode(code)
+                .orElseGet(() -> plantRepository.save(
+                        new Plant(code, name, displayName, displayTitle, sortOrder)
+                ));
+    }
+
+    private AppUser createAdminIfNotExists() {
+        return appUserRepository.findByUsername("admin")
+                .map(existing -> {
+                    boolean changed = false;
+
+                    if (!existing.isActive()) {
+                        existing.setActive(true);
+                        changed = true;
+                    }
+
+                    if (!existing.isPlatformAdmin()) {
+                        existing.setPlatformAdmin(true);
+                        changed = true;
+                    }
+
+                    if (existing.getCorporateEmail() == null || existing.getCorporateEmail().isBlank()) {
+                        existing.setCorporateEmail("admin@local");
+                        changed = true;
+                    }
+
+                    return changed ? appUserRepository.save(existing) : existing;
+                })
+                .orElseGet(() -> {
+                    AppUser admin = new AppUser(
+                            "admin",
+                            "admin@local",
+                            passwordEncoder.encode("admin"),
+                            "Administrador del sistema",
+                            true
+                    );
+                    admin.setActive(true);
+                    return appUserRepository.save(admin);
+                });
+    }
+
+    private void assignPlantRoleIfNotExists(AppUser user,
+                                            Plant plant,
+                                            PlantRole role) {
+        userPlantRoleRepository.findByUserAndPlant(user, plant)
+                .ifPresentOrElse(existing -> {
+                    boolean changed = false;
+
+                    if (!existing.isActive()) {
+                        existing.setActive(true);
+                        changed = true;
+                    }
+
+                    if (existing.getRole() != role) {
+                        existing.setRole(role);
+                        changed = true;
+                    }
+
+                    if (changed) {
+                        userPlantRoleRepository.save(existing);
+                    }
+                }, () -> {
+                    UserPlantRole userPlantRole = new UserPlantRole(user, plant, role);
+                    userPlantRoleRepository.save(userPlantRole);
+                });
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\config\SecurityConfig.java ====================
+
+package com.ezeiza.cartelera.config;
+
+import com.ezeiza.cartelera.service.auth.AppUserDetailsService;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
+
+@Configuration
+public class SecurityConfig {
+
+    private final AppUserDetailsService appUserDetailsService;
+
+    public SecurityConfig(AppUserDetailsService appUserDetailsService) {
+        this.appUserDetailsService = appUserDetailsService;
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .csrf(csrf -> csrf.disable())
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .userDetailsService(appUserDetailsService)
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        .requestMatchers(
+                                "/",
+                                "/display",
+                                "/display/**",
+                                "/assets/**",
+                                "/favicon.ico",
+                                "/vite.svg",
+                                "/icons.svg",
+                                "/*.svg"
+                        ).permitAll()
+
+                        .requestMatchers("/api/auth/login").permitAll()
+
+                        .requestMatchers("/api/public/**").permitAll()
+
+                        .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/logout").authenticated()
+
+                        .requestMatchers("/app/**").authenticated()
+
+                        .requestMatchers("/api/plants/**").authenticated()
+                        .requestMatchers("/api/users/global/**").authenticated()
+                        .requestMatchers("/api/audit-logs/global").authenticated()
+
+                        .anyRequest().authenticated()
+                );
+
+        return http.build();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
+        return configuration.getAuthenticationManager();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        configuration.setAllowedOrigins(List.of(
+                "http://localhost:5173"
+        ));
+
+        configuration.setAllowedMethods(List.of(
+                "GET",
+                "POST",
+                "PUT",
+                "PATCH",
+                "DELETE",
+                "OPTIONS"
+        ));
+
+        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/api/**", configuration);
+
+        return source;
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\controller\audit\AuditLogController.java ====================
+
+package com.ezeiza.cartelera.controller.audit;
+
+import com.ezeiza.cartelera.dto.audit.AuditLogEntryResponse;
+import com.ezeiza.cartelera.entity.AuditLog;
+import com.ezeiza.cartelera.entity.Plant;
+import com.ezeiza.cartelera.service.audit.AuditService;
+import com.ezeiza.cartelera.service.plant.PlantPermissionService;
+import com.ezeiza.cartelera.service.plant.PlantService;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Locale;
+import java.util.stream.Stream;
+
+@RestController
+public class AuditLogController {
+
+    private final AuditService auditService;
+    private final PlantService plantService;
+    private final PlantPermissionService plantPermissionService;
+
+    public AuditLogController(AuditService auditService,
+                              PlantService plantService,
+                              PlantPermissionService plantPermissionService) {
+        this.auditService = auditService;
+        this.plantService = plantService;
+        this.plantPermissionService = plantPermissionService;
+    }
+
+    @GetMapping("/api/plants/{plantCode}/audit-logs")
+    public List<AuditLogEntryResponse> getPlantAuditLogs(@PathVariable String plantCode,
+                                                         @RequestParam(required = false) String action,
+                                                         @RequestParam(required = false) String username,
+                                                         @RequestParam(required = false) String text,
+                                                         @RequestParam(required = false) String entityName,
+                                                         @RequestParam(required = false) String from,
+                                                         @RequestParam(required = false) String to,
+                                                         @RequestParam(defaultValue = "0") Integer page,
+                                                         @RequestParam(defaultValue = "100") Integer size) {
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        plantPermissionService.requirePlantAdmin(plant.getCode());
+
+        return filterAndPage(
+                auditService.findLatestByPlantCode(plant.getCode()),
+                action,
+                username,
+                text,
+                entityName,
+                from,
+                to,
+                page,
+                size
+        )
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @GetMapping("/api/audit-logs/global")
+    public List<AuditLogEntryResponse> getGlobalAuditLogs(@RequestParam(required = false) String action,
+                                                          @RequestParam(required = false) String username,
+                                                          @RequestParam(required = false) String text,
+                                                          @RequestParam(required = false) String entityName,
+                                                          @RequestParam(required = false) String from,
+                                                          @RequestParam(required = false) String to,
+                                                          @RequestParam(defaultValue = "0") Integer page,
+                                                          @RequestParam(defaultValue = "100") Integer size) {
+        plantPermissionService.requirePlatformAdmin();
+
+        return filterAndPage(
+                auditService.findLatestGlobal(),
+                action,
+                username,
+                text,
+                entityName,
+                from,
+                to,
+                page,
+                size
+        )
+                .map(this::toResponse)
+                .toList();
+    }
+
+    private Stream<AuditLog> filterAndPage(List<AuditLog> logs,
+                                           String action,
+                                           String username,
+                                           String text,
+                                           String entityName,
+                                           String from,
+                                           String to,
+                                           Integer page,
+                                           Integer size) {
+        LocalDateTime fromDate = parseDateTimeOrNull(from);
+        LocalDateTime toDate = parseDateTimeOrNull(to);
+
+        int safePage = page != null && page >= 0 ? page : 0;
+        int safeSize = size != null && size > 0 ? Math.min(size, 200) : 100;
+
+        return logs.stream()
+                .filter(log -> matches(action, log.getAction()))
+                .filter(log -> matches(username, log.getUsername()))
+                .filter(log -> matches(entityName, log.getEntityName()))
+                .filter(log -> matchesText(text, log))
+                .filter(log -> fromDate == null || log.getCreatedAt() == null || !log.getCreatedAt().isBefore(fromDate))
+                .filter(log -> toDate == null || log.getCreatedAt() == null || !log.getCreatedAt().isAfter(toDate))
+                .skip((long) safePage * safeSize)
+                .limit(safeSize);
+    }
+
+    private boolean matches(String expected, String actual) {
+        if (expected == null || expected.trim().isBlank()) {
+            return true;
+        }
+
+        if (actual == null) {
+            return false;
+        }
+
+        return actual.toLowerCase(Locale.ROOT)
+                .contains(expected.trim().toLowerCase(Locale.ROOT));
+    }
+
+    private boolean matchesText(String text, AuditLog log) {
+        if (text == null || text.trim().isBlank()) {
+            return true;
+        }
+
+        String normalizedText = text.trim().toLowerCase(Locale.ROOT);
+
+        return containsIgnoreCase(log.getDescription(), normalizedText)
+                || containsIgnoreCase(log.getOldValue(), normalizedText)
+                || containsIgnoreCase(log.getNewValue(), normalizedText)
+                || containsIgnoreCase(log.getAction(), normalizedText)
+                || containsIgnoreCase(log.getEntityName(), normalizedText)
+                || containsIgnoreCase(log.getUsername(), normalizedText);
+    }
+
+    private boolean containsIgnoreCase(String value, String normalizedText) {
+        return value != null
+                && value.toLowerCase(Locale.ROOT).contains(normalizedText);
+    }
+
+    private LocalDateTime parseDateTimeOrNull(String value) {
+        if (value == null || value.trim().isBlank()) {
+            return null;
+        }
+
+        try {
+            return LocalDateTime.parse(value.trim());
+        } catch (Exception ex) {
+            throw new IllegalArgumentException(
+                    "Formato de fecha invÃ¡lido. Usar ISO local, ejemplo: 2026-06-25T10:30:00"
+            );
+        }
+    }
+
+    private AuditLogEntryResponse toResponse(AuditLog auditLog) {
+        Plant plant = auditLog.getPlant();
+
+        return new AuditLogEntryResponse(
+                auditLog.getId(),
+                plant != null ? plant.getCode() : null,
+                plant != null ? plant.getDisplayName() : null,
+                auditLog.getUsername(),
+                auditLog.getAction(),
+                auditLog.getEntityName(),
+                auditLog.getEntityId(),
+                auditLog.getDescription(),
+                auditLog.getOldValue(),
+                auditLog.getNewValue(),
+                auditLog.getCreatedAt() != null ? auditLog.getCreatedAt().toString() : null
+        );
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\controller\auth\AuthController.java ====================
+
+package com.ezeiza.cartelera.controller.auth;
+
+import com.ezeiza.cartelera.dto.auth.AuthPlantRoleResponse;
+import com.ezeiza.cartelera.dto.auth.AuthUserResponse;
+import com.ezeiza.cartelera.dto.auth.LoginRequest;
+import com.ezeiza.cartelera.entity.AppUser;
+import com.ezeiza.cartelera.entity.Plant;
+import com.ezeiza.cartelera.entity.UserPlantRole;
+import com.ezeiza.cartelera.repository.AppUserRepository;
+import com.ezeiza.cartelera.repository.PlantRepository;
+import com.ezeiza.cartelera.repository.UserPlantRoleRepository;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.Comparator;
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/auth")
+public class AuthController {
+
+    private final AuthenticationManager authenticationManager;
+    private final AppUserRepository appUserRepository;
+    private final UserPlantRoleRepository userPlantRoleRepository;
+    private final PlantRepository plantRepository;
+
+    public AuthController(AuthenticationManager authenticationManager,
+                          AppUserRepository appUserRepository,
+                          UserPlantRoleRepository userPlantRoleRepository,
+                          PlantRepository plantRepository) {
+        this.authenticationManager = authenticationManager;
+        this.appUserRepository = appUserRepository;
+        this.userPlantRoleRepository = userPlantRoleRepository;
+        this.plantRepository = plantRepository;
+    }
+
+    @PostMapping("/login")
+    public AuthUserResponse login(@RequestBody LoginRequest request,
+                                  HttpServletRequest httpServletRequest) {
+        if (request == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La solicitud es obligatoria.");
+        }
+
+        if (request.username() == null || request.username().trim().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El usuario es obligatorio.");
+        }
+
+        if (request.password() == null || request.password().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La contraseÃ±a es obligatoria.");
+        }
+
+        String username = request.username().trim().toLowerCase();
+
+        AppUser existingUser = appUserRepository.findByUsername(username)
+                .orElse(null);
+
+        if (existingUser != null && !existingUser.isActive()) {
+            throw new ResponseStatusException(
+                    HttpStatus.LOCKED,
+                    "El usuario estÃ¡ deshabilitado. ContactÃ¡ a un administrador."
+            );
+        }
+
+        Authentication authentication;
+
+        try {
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            username,
+                            request.password()
+                    )
+            );
+        } catch (AuthenticationException ex) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Usuario o contraseÃ±a incorrectos."
+            );
+        }
+
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        HttpSession session = httpServletRequest.getSession(true);
+
+        session.setAttribute(
+                HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
+                SecurityContextHolder.getContext()
+        );
+
+        AppUser appUser = appUserRepository.findByUsernameAndActiveTrue(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+
+        return toAuthUserResponse(appUser);
+    }
+
+    @PostMapping("/logout")
+    public void logout(HttpServletRequest httpServletRequest) {
+        HttpSession session = httpServletRequest.getSession(false);
+
+        if (session != null) {
+            session.invalidate();
+        }
+
+        SecurityContextHolder.clearContext();
+    }
+
+    @GetMapping("/me")
+    public AuthUserResponse me() {
+        Authentication authentication = SecurityContextHolder
+                .getContext()
+                .getAuthentication();
+
+        if (authentication == null
+                || authentication.getName() == null
+                || "anonymousUser".equals(authentication.getName())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
+        }
+
+        String username = authentication.getName().trim().toLowerCase();
+
+        AppUser appUser = appUserRepository.findByUsernameAndActiveTrue(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
+
+        return toAuthUserResponse(appUser);
+    }
+
+    @PostMapping("/logout-all")
+    public void logoutAll(HttpServletRequest httpServletRequest) {
+        logout(httpServletRequest);
+    }
+
+    private AuthUserResponse toAuthUserResponse(AppUser appUser) {
+        return new AuthUserResponse(
+                appUser.getId(),
+                appUser.getUsername(),
+                appUser.getCorporateEmail(),
+                appUser.getFullName(),
+                appUser.isActive(),
+                appUser.isPlatformAdmin(),
+                buildPlantRoles(appUser)
+        );
+    }
+
+    private List<AuthPlantRoleResponse> buildPlantRoles(AppUser appUser) {
+        if (appUser.isPlatformAdmin()) {
+            return plantRepository.findByActiveTrueOrderBySortOrderAscNameAsc()
+                    .stream()
+                    .map(plant -> new AuthPlantRoleResponse(
+                            plant.getCode(),
+                            plant.getName(),
+                            plant.getDisplayName(),
+                            "ADMIN"
+                    ))
+                    .toList();
+        }
+
+        return userPlantRoleRepository.findByUserAndActiveTrue(appUser)
+                .stream()
+                .filter(userPlantRole -> userPlantRole.getPlant() != null)
+                .filter(userPlantRole -> userPlantRole.getPlant().isActive())
+                .sorted(Comparator.comparingInt(this::getPlantSortOrderSafe))
+                .map(this::toAuthPlantRoleResponse)
+                .toList();
+    }
+
+    private int getPlantSortOrderSafe(UserPlantRole userPlantRole) {
+        Plant plant = userPlantRole.getPlant();
+
+        if (plant == null || plant.getSortOrder() == null) {
+            return Integer.MAX_VALUE;
+        }
+
+        return plant.getSortOrder();
+    }
+
+    private AuthPlantRoleResponse toAuthPlantRoleResponse(UserPlantRole userPlantRole) {
+        Plant plant = userPlantRole.getPlant();
+
+        return new AuthPlantRoleResponse(
+                plant.getCode(),
+                plant.getName(),
+                plant.getDisplayName(),
+                userPlantRole.getRole().name()
+        );
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\controller\display\PlantDisplayController.java ====================
+
+package com.ezeiza.cartelera.controller.display;
+
+import com.ezeiza.cartelera.dto.display.PlantDisplayPublishedResponse;
+import com.ezeiza.cartelera.entity.DisplayPublished;
+import com.ezeiza.cartelera.entity.Plant;
+import com.ezeiza.cartelera.service.display.DisplayService;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/plants/{plantCode}/display")
+public class PlantDisplayController {
+
+    private final DisplayService displayService;
+
+    public PlantDisplayController(DisplayService displayService) {
+        this.displayService = displayService;
+    }
+
+    @PostMapping("/publish")
+    public PlantDisplayPublishedResponse publishDisplay(@PathVariable String plantCode) {
+        DisplayPublished published = displayService.publishCurrentDisplay(plantCode);
+
+        return toResponse(published);
+    }
+
+    @GetMapping("/published")
+    public PlantDisplayPublishedResponse getPublishedDisplay(@PathVariable String plantCode) {
+        return displayService.getLastPublishedDisplay(plantCode)
+                .map(this::toResponse)
+                .orElse(null);
+    }
+
+    private PlantDisplayPublishedResponse toResponse(DisplayPublished published) {
+        Plant plant = published.getPlant();
+
+        return new PlantDisplayPublishedResponse(
+                published.getId(),
+                plant != null ? plant.getCode() : null,
+                published.getUserId(),
+                published.getResponsibleName(),
+                published.getResponsiblePosition(),
+                published.getPlantName(),
+                published.getMainTitle(),
+                published.getPublishedAt() != null ? published.getPublishedAt().toString() : null
+        );
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\controller\display\PublicDisplayController.java ====================
+
+package com.ezeiza.cartelera.controller.display;
+
+import com.ezeiza.cartelera.dto.display.PlantDisplayPublishedResponse;
+import com.ezeiza.cartelera.entity.DisplayPublished;
+import com.ezeiza.cartelera.entity.Plant;
+import com.ezeiza.cartelera.service.display.DisplayService;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/public/plants")
+public class PublicDisplayController {
+
+    private final DisplayService displayService;
+
+    public PublicDisplayController(DisplayService displayService) {
+        this.displayService = displayService;
+    }
+
+    @GetMapping("/{plantCode}/display/published")
+    public PlantDisplayPublishedResponse getPublishedDisplay(@PathVariable String plantCode) {
+        return displayService.getLastPublishedDisplayPublic(plantCode)
+                .map(this::toResponse)
+                .orElse(null);
+    }
+
+    private PlantDisplayPublishedResponse toResponse(DisplayPublished published) {
+        Plant plant = published.getPlant();
+
+        return new PlantDisplayPublishedResponse(
+                published.getId(),
+                plant != null ? plant.getCode() : null,
+                published.getUserId(),
+                published.getResponsibleName(),
+                published.getResponsiblePosition(),
+                published.getPlantName(),
+                published.getMainTitle(),
+                published.getPublishedAt() != null ? published.getPublishedAt().toString() : null
+        );
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\controller\frontend\FrontendForwardController.java ====================
+
+package com.ezeiza.cartelera.controller.frontend;
+
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+
+@Controller
+public class FrontendForwardController {
+
+    /*
+     * Rutas React actuales.
+     */
+    @GetMapping(value = {
+            "/",
+            "/display",
+            "/history",
+            "/users"
+    })
+    public String forwardLegacyRoutesToReact() {
+        return "forward:/index.html";
+    }
+
+    /*
+     * Display pÃºblico para Yodeck.
+     *
+     * Ejemplos:
+     * /display/ezeiza
+     * /display/aeroparque
+     * /display/the-pro-laundry
+     */
+    @GetMapping("/display/{plantCode}")
+    public String forwardDisplayPlantRouteToReact() {
+        return "forward:/index.html";
+    }
+
+    /*
+     * Ruta interactiva futura para usuarios.
+     *
+     * Ejemplos:
+     * /app/ezeiza
+     * /app/aeroparque
+     *
+     * En el futuro esta ruta autenticarÃ¡ con Entra ID.
+     */
+    @GetMapping("/app/{plantCode}")
+    public String forwardAppPlantRouteToReact() {
+        return "forward:/index.html";
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\controller\member\PlantMemberController.java ====================
+
+package com.ezeiza.cartelera.controller.member;
+
+import com.ezeiza.cartelera.dto.member.AvailabilityRequest;
+import com.ezeiza.cartelera.dto.member.CreatePlantMemberRequest;
+import com.ezeiza.cartelera.dto.member.PlantMemberResponse;
+import com.ezeiza.cartelera.dto.member.UpdatePlantMemberRequest;
+import com.ezeiza.cartelera.entity.AppUser;
+import com.ezeiza.cartelera.entity.Plant;
+import com.ezeiza.cartelera.entity.PlantMember;
+import com.ezeiza.cartelera.service.member.PlantMemberService;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/plants/{plantCode}/members")
+public class PlantMemberController {
+
+    private final PlantMemberService plantMemberService;
+
+    public PlantMemberController(PlantMemberService plantMemberService) {
+        this.plantMemberService = plantMemberService;
+    }
+
+    @GetMapping
+    public List<PlantMemberResponse> getMembers(@PathVariable String plantCode) {
+        return plantMemberService.findActiveMembers(plantCode)
+                .stream()
+                .map(this::toPlantMemberResponse)
+                .toList();
+    }
+
+    /*
+     * Endpoint cÃ³modo para frontend:
+     * POST /api/plants/ezeiza/members
+     * body: { "userId": 10, "position": "Jefe de planta" }
+     */
+    @PostMapping
+    public PlantMemberResponse addMember(@PathVariable String plantCode,
+                                         @RequestBody CreatePlantMemberRequest request) {
+        PlantMember member = plantMemberService.addMember(
+                plantCode,
+                request.userId(),
+                request.position()
+        );
+
+        return toPlantMemberResponse(member);
+    }
+
+    /*
+     * Endpoint alineado al diseÃ±o propuesto:
+     * POST /api/plants/ezeiza/members/10
+     * body opcional: { "userId": null, "position": "Jefe de planta" }
+     *
+     * Si el body viene null, igual crea el miembro con position vacÃ­o.
+     */
+    @PostMapping("/{userId}")
+    public PlantMemberResponse addMemberByUserId(@PathVariable String plantCode,
+                                                 @PathVariable Long userId,
+                                                 @RequestBody(required = false) CreatePlantMemberRequest request) {
+        String position = request != null ? request.position() : null;
+
+        PlantMember member = plantMemberService.addMember(
+                plantCode,
+                userId,
+                position
+        );
+
+        return toPlantMemberResponse(member);
+    }
+
+    @PatchMapping("/{memberId}")
+    public PlantMemberResponse updateMember(@PathVariable String plantCode,
+                                            @PathVariable Long memberId,
+                                            @RequestBody UpdatePlantMemberRequest request) {
+        PlantMember member = plantMemberService.updateMember(
+                plantCode,
+                memberId,
+                request.position(),
+                request.active()
+        );
+
+        return toPlantMemberResponse(member);
+    }
+
+    @DeleteMapping("/{memberId}")
+    public void removeMember(@PathVariable String plantCode,
+                             @PathVariable Long memberId) {
+        plantMemberService.removeMember(plantCode, memberId);
+    }
+
+    @PatchMapping("/{memberId}/availability")
+    public PlantMemberResponse updateAvailability(@PathVariable String plantCode,
+                                                  @PathVariable Long memberId,
+                                                  @RequestBody AvailabilityRequest request) {
+        boolean available = Boolean.TRUE.equals(request.available());
+
+        PlantMember member = plantMemberService.updateAvailability(
+                plantCode,
+                memberId,
+                available
+        );
+
+        return toPlantMemberResponse(member);
+    }
+
+    private PlantMemberResponse toPlantMemberResponse(PlantMember member) {
+        Plant plant = member.getPlant();
+        AppUser user = member.getUser();
+
+        return new PlantMemberResponse(
+                member.getId(),
+                plant != null ? plant.getCode() : null,
+                user != null ? user.getId() : null,
+                user != null ? user.getUsername() : null,
+                user != null ? user.getCorporateEmail() : null,
+                user != null ? user.getFullName() : null,
+                member.getPosition(),
+                member.isAvailable(),
+                member.isActive(),
+                member.getCreatedAt() != null ? member.getCreatedAt().toString() : null,
+                member.getUpdatedAt() != null ? member.getUpdatedAt().toString() : null
+        );
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\controller\plant\PlantAdminStateController.java ====================
+
+package com.ezeiza.cartelera.controller.plant;
+
+import com.ezeiza.cartelera.dto.display.PlantDisplayPublishedResponse;
+import com.ezeiza.cartelera.dto.member.PlantMemberResponse;
+import com.ezeiza.cartelera.dto.plant.PlantAdminStateResponse;
+import com.ezeiza.cartelera.dto.plant.PlantResponse;
+import com.ezeiza.cartelera.dto.succession.SuccessionOrderResponse;
+import com.ezeiza.cartelera.entity.AppUser;
+import com.ezeiza.cartelera.entity.DisplayPublished;
+import com.ezeiza.cartelera.entity.Plant;
+import com.ezeiza.cartelera.entity.PlantMember;
+import com.ezeiza.cartelera.entity.PlantRole;
+import com.ezeiza.cartelera.entity.SuccessionOrder;
+import com.ezeiza.cartelera.service.display.DisplayService;
+import com.ezeiza.cartelera.service.plant.PlantPermissionService;
+import com.ezeiza.cartelera.service.plant.PlantService;
+import com.ezeiza.cartelera.service.succession.SuccessionService;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api/plants/{plantCode}/admin/state")
+public class PlantAdminStateController {
+
+    private final PlantService plantService;
+    private final PlantPermissionService plantPermissionService;
+    private final SuccessionService successionService;
+    private final DisplayService displayService;
+
+    public PlantAdminStateController(PlantService plantService,
+                                     PlantPermissionService plantPermissionService,
+                                     SuccessionService successionService,
+                                     DisplayService displayService) {
+        this.plantService = plantService;
+        this.plantPermissionService = plantPermissionService;
+        this.successionService = successionService;
+        this.displayService = displayService;
+    }
+
+    @GetMapping
+    public PlantAdminStateResponse getAdminState(@PathVariable String plantCode) {
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        plantPermissionService.requirePlantOperatorOrAdmin(plant.getCode());
+
+        String currentUserRole = plantPermissionService
+                .getCurrentUserRoleForPlant(plant.getCode())
+                .map(PlantRole::name)
+                .orElse("Sin permisos");
+
+        Optional<PlantMember> currentResponsibleOptional =
+                successionService.calculateCurrentResponsible(plant.getCode());
+
+        Long currentResponsibleMemberId = currentResponsibleOptional
+                .map(PlantMember::getId)
+                .orElse(null);
+
+        PlantMemberResponse currentResponsible = currentResponsibleOptional
+                .map(this::toPlantMemberResponse)
+                .orElse(null);
+
+        List<SuccessionOrderResponse> successionList = successionService
+                .findActiveSuccession(plant.getCode())
+                .stream()
+                .map(item -> toSuccessionOrderResponse(item, currentResponsibleMemberId))
+                .toList();
+
+        PlantDisplayPublishedResponse publishedDisplay = displayService
+                .getLastPublishedDisplay(plant.getCode())
+                .map(this::toPlantDisplayPublishedResponse)
+                .orElse(null);
+
+        return new PlantAdminStateResponse(
+                toPlantResponse(plant),
+                currentUserRole,
+                currentResponsible,
+                successionList,
+                publishedDisplay
+        );
+    }
+
+    private PlantResponse toPlantResponse(Plant plant) {
+        return new PlantResponse(
+                plant.getId(),
+                plant.getCode(),
+                plant.getName(),
+                plant.getDisplayName(),
+                plant.getDisplayTitle(),
+                plant.isActive(),
+                plant.getSortOrder(),
+                plant.getCreatedAt() != null ? plant.getCreatedAt().toString() : null,
+                plant.getUpdatedAt() != null ? plant.getUpdatedAt().toString() : null
+        );
+    }
+
+    private SuccessionOrderResponse toSuccessionOrderResponse(SuccessionOrder item,
+                                                              Long currentResponsibleMemberId) {
+        PlantMember member = item.getPlantMember();
+
+        return new SuccessionOrderResponse(
+                item.getId(),
+                item.getPlant() != null ? item.getPlant().getCode() : null,
+                item.getOrderNumber(),
+                member != null ? toPlantMemberResponse(member) : null,
+                member != null
+                        && currentResponsibleMemberId != null
+                        && member.getId().equals(currentResponsibleMemberId),
+                item.isActive(),
+                item.getCreatedAt() != null ? item.getCreatedAt().toString() : null,
+                item.getUpdatedAt() != null ? item.getUpdatedAt().toString() : null
+        );
+    }
+
+    private PlantMemberResponse toPlantMemberResponse(PlantMember member) {
+        Plant plant = member.getPlant();
+        AppUser user = member.getUser();
+
+        return new PlantMemberResponse(
+                member.getId(),
+                plant != null ? plant.getCode() : null,
+                user != null ? user.getId() : null,
+                user != null ? user.getUsername() : null,
+                user != null ? user.getCorporateEmail() : null,
+                user != null ? user.getFullName() : null,
+                member.getPosition(),
+                member.isAvailable(),
+                member.isActive(),
+                member.getCreatedAt() != null ? member.getCreatedAt().toString() : null,
+                member.getUpdatedAt() != null ? member.getUpdatedAt().toString() : null
+        );
+    }
+
+    private PlantDisplayPublishedResponse toPlantDisplayPublishedResponse(DisplayPublished published) {
+        Plant plant = published.getPlant();
+
+        return new PlantDisplayPublishedResponse(
+                published.getId(),
+                plant != null ? plant.getCode() : null,
+                published.getUserId(),
+                published.getResponsibleName(),
+                published.getResponsiblePosition(),
+                published.getPlantName(),
+                published.getMainTitle(),
+                published.getPublishedAt() != null ? published.getPublishedAt().toString() : null
+        );
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\controller\plant\PlantController.java ====================
+
+package com.ezeiza.cartelera.controller.plant;
+
+import com.ezeiza.cartelera.dto.plant.CreatePlantRequest;
+import com.ezeiza.cartelera.dto.plant.MyPlantResponse;
+import com.ezeiza.cartelera.dto.plant.PlantResponse;
+import com.ezeiza.cartelera.dto.plant.UpdatePlantRequest;
+import com.ezeiza.cartelera.dto.plant.UpdatePlantStatusRequest;
+import com.ezeiza.cartelera.entity.AppUser;
+import com.ezeiza.cartelera.entity.Plant;
+import com.ezeiza.cartelera.repository.UserPlantRoleRepository;
+import com.ezeiza.cartelera.service.plant.PlantPermissionService;
+import com.ezeiza.cartelera.service.plant.PlantService;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/plants")
+public class PlantController {
+
+    private final PlantService plantService;
+    private final PlantPermissionService plantPermissionService;
+    private final UserPlantRoleRepository userPlantRoleRepository;
+
+    public PlantController(PlantService plantService,
+                           PlantPermissionService plantPermissionService,
+                           UserPlantRoleRepository userPlantRoleRepository) {
+        this.plantService = plantService;
+        this.plantPermissionService = plantPermissionService;
+        this.userPlantRoleRepository = userPlantRoleRepository;
+    }
+
+    @GetMapping("/my")
+    public List<MyPlantResponse> getMyPlants() {
+        AppUser currentUser = plantPermissionService.getCurrentUserOrThrow();
+
+        if (currentUser.isPlatformAdmin()) {
+            return plantService.findActive()
+                    .stream()
+                    .map(plant -> new MyPlantResponse(
+                            plant.getCode(),
+                            plant.getName(),
+                            plant.getDisplayName(),
+                            "ADMIN"
+                    ))
+                    .toList();
+        }
+
+        return userPlantRoleRepository.findByUserAndActiveTrue(currentUser)
+                .stream()
+                .filter(userPlantRole -> userPlantRole.getPlant() != null)
+                .filter(userPlantRole -> userPlantRole.getPlant().isActive())
+                .map(userPlantRole -> new MyPlantResponse(
+                        userPlantRole.getPlant().getCode(),
+                        userPlantRole.getPlant().getName(),
+                        userPlantRole.getPlant().getDisplayName(),
+                        userPlantRole.getRole().name()
+                ))
+                .toList();
+    }
+
+    @GetMapping
+    public List<PlantResponse> getPlants() {
+        plantPermissionService.requirePlatformAdmin();
+
+        return plantService.findAll()
+                .stream()
+                .map(this::toPlantResponse)
+                .toList();
+    }
+
+    @PostMapping
+    public PlantResponse createPlant(@RequestBody CreatePlantRequest request) {
+        plantPermissionService.requirePlatformAdmin();
+
+        Plant plant = plantService.createPlant(
+                request.code(),
+                request.name(),
+                request.displayName(),
+                request.displayTitle(),
+                request.sortOrder()
+        );
+
+        return toPlantResponse(plant);
+    }
+
+    @PatchMapping("/{plantCode}")
+    public PlantResponse updatePlant(@PathVariable String plantCode,
+                                     @RequestBody UpdatePlantRequest request) {
+        plantPermissionService.requirePlatformAdmin();
+
+        Plant plant = plantService.updatePlant(
+                plantCode,
+                request.name(),
+                request.displayName(),
+                request.displayTitle(),
+                request.sortOrder()
+        );
+
+        return toPlantResponse(plant);
+    }
+
+    @PatchMapping("/{plantCode}/status")
+    public PlantResponse updatePlantStatus(@PathVariable String plantCode,
+                                           @RequestBody UpdatePlantStatusRequest request) {
+        plantPermissionService.requirePlatformAdmin();
+
+        boolean active = Boolean.TRUE.equals(request.active());
+
+        Plant plant = plantService.updateStatus(plantCode, active);
+
+        return toPlantResponse(plant);
+    }
+
+    private PlantResponse toPlantResponse(Plant plant) {
+        return new PlantResponse(
+                plant.getId(),
+                plant.getCode(),
+                plant.getName(),
+                plant.getDisplayName(),
+                plant.getDisplayTitle(),
+                plant.isActive(),
+                plant.getSortOrder(),
+                plant.getCreatedAt() != null ? plant.getCreatedAt().toString() : null,
+                plant.getUpdatedAt() != null ? plant.getUpdatedAt().toString() : null
+        );
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\controller\plant\PublicPlantController.java ====================
+
+package com.ezeiza.cartelera.controller.plant;
+
+import com.ezeiza.cartelera.dto.plant.PublicPlantResponse;
+import com.ezeiza.cartelera.entity.Plant;
+import com.ezeiza.cartelera.service.plant.PlantService;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+@RestController
+public class PublicPlantController {
+
+    private final PlantService plantService;
+
+    public PublicPlantController(PlantService plantService) {
+        this.plantService = plantService;
+    }
+
+    @GetMapping("/api/public/plants")
+    public List<PublicPlantResponse> getPublicPlants() {
+        return plantService.findActive()
+                .stream()
+                .map(this::toPublicPlantResponse)
+                .toList();
+    }
+
+    private PublicPlantResponse toPublicPlantResponse(Plant plant) {
+        return new PublicPlantResponse(
+                plant.getId(),
+                plant.getCode(),
+                plant.getName(),
+                plant.getDisplayName(),
+                plant.getDisplayTitle(),
+                plant.getSortOrder()
+        );
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\controller\succession\SuccessionController.java ====================
+
+package com.ezeiza.cartelera.controller.succession;
+
+import com.ezeiza.cartelera.dto.member.PlantMemberResponse;
+import com.ezeiza.cartelera.dto.succession.SuccessionOrderResponse;
+import com.ezeiza.cartelera.entity.AppUser;
+import com.ezeiza.cartelera.entity.Plant;
+import com.ezeiza.cartelera.entity.PlantMember;
+import com.ezeiza.cartelera.entity.SuccessionOrder;
+import com.ezeiza.cartelera.service.succession.SuccessionService;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api/plants/{plantCode}/succession")
+public class SuccessionController {
+
+    private final SuccessionService successionService;
+
+    public SuccessionController(SuccessionService successionService) {
+        this.successionService = successionService;
+    }
+
+    @GetMapping
+    public List<SuccessionOrderResponse> getSuccession(@PathVariable String plantCode) {
+        Optional<PlantMember> currentResponsible = successionService.calculateCurrentResponsible(plantCode);
+
+        Long currentResponsibleMemberId = currentResponsible
+                .map(PlantMember::getId)
+                .orElse(null);
+
+        return successionService.findActiveSuccession(plantCode)
+                .stream()
+                .map(item -> toSuccessionOrderResponse(item, currentResponsibleMemberId))
+                .toList();
+    }
+
+    @PostMapping("/{memberId}")
+    public SuccessionOrderResponse addToSuccession(@PathVariable String plantCode,
+                                                   @PathVariable Long memberId) {
+        SuccessionOrder successionOrder = successionService.addToSuccession(
+                plantCode,
+                memberId
+        );
+
+        Optional<PlantMember> currentResponsible = successionService.calculateCurrentResponsible(plantCode);
+
+        Long currentResponsibleMemberId = currentResponsible
+                .map(PlantMember::getId)
+                .orElse(null);
+
+        return toSuccessionOrderResponse(successionOrder, currentResponsibleMemberId);
+    }
+
+    @DeleteMapping("/{memberId}")
+    public void removeFromSuccession(@PathVariable String plantCode,
+                                     @PathVariable Long memberId) {
+        successionService.removeFromSuccession(plantCode, memberId);
+    }
+
+    @PostMapping("/{memberId}/move-up")
+    public List<SuccessionOrderResponse> moveUp(@PathVariable String plantCode,
+                                                @PathVariable Long memberId) {
+        successionService.moveUp(plantCode, memberId);
+
+        return getSuccession(plantCode);
+    }
+
+    @PostMapping("/{memberId}/move-down")
+    public List<SuccessionOrderResponse> moveDown(@PathVariable String plantCode,
+                                                  @PathVariable Long memberId) {
+        successionService.moveDown(plantCode, memberId);
+
+        return getSuccession(plantCode);
+    }
+
+    private SuccessionOrderResponse toSuccessionOrderResponse(SuccessionOrder item,
+                                                              Long currentResponsibleMemberId) {
+        PlantMember member = item.getPlantMember();
+
+        return new SuccessionOrderResponse(
+                item.getId(),
+                item.getPlant() != null ? item.getPlant().getCode() : null,
+                item.getOrderNumber(),
+                member != null ? toPlantMemberResponse(member) : null,
+                member != null
+                        && currentResponsibleMemberId != null
+                        && member.getId().equals(currentResponsibleMemberId),
+                item.isActive(),
+                item.getCreatedAt() != null ? item.getCreatedAt().toString() : null,
+                item.getUpdatedAt() != null ? item.getUpdatedAt().toString() : null
+        );
+    }
+
+    private PlantMemberResponse toPlantMemberResponse(PlantMember member) {
+        Plant plant = member.getPlant();
+        AppUser user = member.getUser();
+
+        return new PlantMemberResponse(
+                member.getId(),
+                plant != null ? plant.getCode() : null,
+                user != null ? user.getId() : null,
+                user != null ? user.getUsername() : null,
+                user != null ? user.getCorporateEmail() : null,
+                user != null ? user.getFullName() : null,
+                member.getPosition(),
+                member.isAvailable(),
+                member.isActive(),
+                member.getCreatedAt() != null ? member.getCreatedAt().toString() : null,
+                member.getUpdatedAt() != null ? member.getUpdatedAt().toString() : null
+        );
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\controller\user\GlobalUserController.java ====================
+
+package com.ezeiza.cartelera.controller.user;
+
+import com.ezeiza.cartelera.dto.user.CreateGlobalUserRequest;
+import com.ezeiza.cartelera.dto.user.GlobalUserResponse;
+import com.ezeiza.cartelera.dto.user.UpdateGlobalUserRequest;
+import com.ezeiza.cartelera.dto.user.UpdateGlobalUserStatusRequest;
+import com.ezeiza.cartelera.entity.AppUser;
+import com.ezeiza.cartelera.service.user.GlobalUserService;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/users/global")
+public class GlobalUserController {
+
+    private final GlobalUserService globalUserService;
+
+    public GlobalUserController(GlobalUserService globalUserService) {
+        this.globalUserService = globalUserService;
+    }
+
+    @GetMapping
+    public List<GlobalUserResponse> getUsers() {
+        return globalUserService.findAllUsers()
+                .stream()
+                .map(this::toGlobalUserResponse)
+                .toList();
+    }
+
+    @PostMapping
+    public GlobalUserResponse createUser(@RequestBody CreateGlobalUserRequest request) {
+        AppUser user = globalUserService.createUser(
+                request.username(),
+                request.corporateEmail(),
+                request.fullName(),
+                request.password(),
+                request.platformAdmin()
+        );
+
+        return toGlobalUserResponse(user);
+    }
+
+    @PatchMapping("/{userId}")
+    public GlobalUserResponse updateUser(@PathVariable Long userId,
+                                         @RequestBody UpdateGlobalUserRequest request) {
+        AppUser user = globalUserService.updateUser(
+                userId,
+                request.corporateEmail(),
+                request.fullName(),
+                request.platformAdmin()
+        );
+
+        return toGlobalUserResponse(user);
+    }
+
+    @PatchMapping("/{userId}/status")
+    public GlobalUserResponse updateStatus(@PathVariable Long userId,
+                                           @RequestBody UpdateGlobalUserStatusRequest request) {
+        boolean active = Boolean.TRUE.equals(request.active());
+
+        AppUser user = globalUserService.updateStatus(
+                userId,
+                active
+        );
+
+        return toGlobalUserResponse(user);
+    }
+
+    private GlobalUserResponse toGlobalUserResponse(AppUser user) {
+        return new GlobalUserResponse(
+                user.getId(),
+                user.getUsername(),
+                user.getCorporateEmail(),
+                user.getFullName(),
+                user.isActive(),
+                user.isPlatformAdmin(),
+                user.getEntraObjectId(),
+                user.getEntraTenantId(),
+                user.getCreatedAt() != null ? user.getCreatedAt().toString() : null,
+                user.getUpdatedAt() != null ? user.getUpdatedAt().toString() : null
+        );
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\controller\user\PlantUserRoleController.java ====================
+
+package com.ezeiza.cartelera.controller.user;
+
+import com.ezeiza.cartelera.dto.user.PlantRoleRequest;
+import com.ezeiza.cartelera.dto.user.PlantUserResponse;
+import com.ezeiza.cartelera.dto.user.UserPlantRoleResponse;
+import com.ezeiza.cartelera.entity.AppUser;
+import com.ezeiza.cartelera.entity.Plant;
+import com.ezeiza.cartelera.entity.UserPlantRole;
+import com.ezeiza.cartelera.repository.AppUserRepository;
+import com.ezeiza.cartelera.repository.UserPlantRoleRepository;
+import com.ezeiza.cartelera.service.plant.PlantPermissionService;
+import com.ezeiza.cartelera.service.plant.PlantService;
+import com.ezeiza.cartelera.service.user.UserPlantRoleService;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Comparator;
+import java.util.List;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api/plants/{plantCode}/users")
+public class PlantUserRoleController {
+
+    private final AppUserRepository appUserRepository;
+    private final UserPlantRoleRepository userPlantRoleRepository;
+    private final UserPlantRoleService userPlantRoleService;
+    private final PlantService plantService;
+    private final PlantPermissionService plantPermissionService;
+
+    public PlantUserRoleController(AppUserRepository appUserRepository,
+                                   UserPlantRoleRepository userPlantRoleRepository,
+                                   UserPlantRoleService userPlantRoleService,
+                                   PlantService plantService,
+                                   PlantPermissionService plantPermissionService) {
+        this.appUserRepository = appUserRepository;
+        this.userPlantRoleRepository = userPlantRoleRepository;
+        this.userPlantRoleService = userPlantRoleService;
+        this.plantService = plantService;
+        this.plantPermissionService = plantPermissionService;
+    }
+
+    @GetMapping
+    public List<PlantUserResponse> getUsersForPlant(@PathVariable String plantCode) {
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        plantPermissionService.requirePlantAdmin(plant.getCode());
+
+        return appUserRepository.findAll()
+                .stream()
+                .sorted(Comparator.comparing(
+                        AppUser::getFullName,
+                        Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)
+                ))
+                .map(user -> toPlantUserResponse(user, plant))
+                .toList();
+    }
+
+    @PutMapping("/{userId}/role")
+    public UserPlantRoleResponse assignRole(@PathVariable String plantCode,
+                                            @PathVariable Long userId,
+                                            @RequestBody PlantRoleRequest request) {
+        UserPlantRole userPlantRole = userPlantRoleService.assignRole(
+                plantCode,
+                userId,
+                request.role()
+        );
+
+        return toUserPlantRoleResponse(userPlantRole);
+    }
+
+    @DeleteMapping("/{userId}/role")
+    public void removeRole(@PathVariable String plantCode,
+                           @PathVariable Long userId) {
+        userPlantRoleService.removeRole(plantCode, userId);
+    }
+
+    private PlantUserResponse toPlantUserResponse(AppUser user, Plant plant) {
+        Optional<UserPlantRole> userPlantRoleOptional = userPlantRoleRepository
+                .findByUserAndPlantAndActiveTrue(user, plant);
+
+        String roleInPlant = userPlantRoleOptional
+                .map(userPlantRole -> userPlantRole.getRole().name())
+                .orElse("Sin permisos");
+
+        Long userPlantRoleId = userPlantRoleOptional
+                .map(UserPlantRole::getId)
+                .orElse(null);
+
+        return new PlantUserResponse(
+                user.getId(),
+                user.getUsername(),
+                user.getCorporateEmail(),
+                user.getFullName(),
+                user.isActive(),
+                user.isPlatformAdmin(),
+                roleInPlant,
+                userPlantRoleId
+        );
+    }
+
+    private UserPlantRoleResponse toUserPlantRoleResponse(UserPlantRole userPlantRole) {
+        AppUser user = userPlantRole.getUser();
+        Plant plant = userPlantRole.getPlant();
+
+        return new UserPlantRoleResponse(
+                userPlantRole.getId(),
+                user.getId(),
+                user.getUsername(),
+                user.getCorporateEmail(),
+                user.getFullName(),
+                plant.getCode(),
+                plant.getDisplayName(),
+                userPlantRole.getRole().name(),
+                userPlantRole.isActive(),
+                userPlantRole.getCreatedAt() != null ? userPlantRole.getCreatedAt().toString() : null,
+                userPlantRole.getUpdatedAt() != null ? userPlantRole.getUpdatedAt().toString() : null
+        );
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\dto\CreateUserRequest.java ====================
+
+package com.ezeiza.cartelera.dto;
+
+public record CreateUserRequest(
+        String username,
+        String password,
+        String fullName,
+        String role
+) {
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\dto\audit\AuditLogEntryResponse.java ====================
+
+package com.ezeiza.cartelera.dto.audit;
+
+public record AuditLogEntryResponse(
+        Long id,
+        String plantCode,
+        String plantName,
+        String username,
+        String action,
+        String entityName,
+        Long entityId,
+        String description,
+        String oldValue,
+        String newValue,
+        String createdAt
+) {
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\dto\auth\AuthPlantRoleResponse.java ====================
+
+package com.ezeiza.cartelera.dto.auth;
+
+public record AuthPlantRoleResponse(
+        String code,
+        String name,
+        String displayName,
+        String role
+) {
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\dto\auth\AuthUserResponse.java ====================
+
+package com.ezeiza.cartelera.dto.auth;
+
+import java.util.List;
+
+public record AuthUserResponse(
+        Long id,
+        String username,
+        String corporateEmail,
+        String fullName,
+        Boolean active,
+        Boolean platformAdmin,
+        List<AuthPlantRoleResponse> plants
+) {
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\dto\auth\LoginRequest.java ====================
+
+package com.ezeiza.cartelera.dto.auth;
+
+public record LoginRequest(
+        String username,
+        String password
+) {
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\dto\display\PlantDisplayPublishedResponse.java ====================
+
+package com.ezeiza.cartelera.dto.display;
+
+public record PlantDisplayPublishedResponse(
+        Long id,
+        String plantCode,
+        Long userId,
+        String responsibleName,
+        String responsiblePosition,
+        String plantName,
+        String mainTitle,
+        String publishedAt
+) {
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\dto\member\AvailabilityRequest.java ====================
+
+package com.ezeiza.cartelera.dto.member;
+
+public record AvailabilityRequest(
+        Boolean available
+) {
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\dto\member\CreatePlantMemberRequest.java ====================
+
+package com.ezeiza.cartelera.dto.member;
+
+public record CreatePlantMemberRequest(
+        Long userId,
+        String position
+) {
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\dto\member\PlantMemberResponse.java ====================
+
+package com.ezeiza.cartelera.dto.member;
+
+public record PlantMemberResponse(
+        Long id,
+        String plantCode,
+        Long userId,
+        String username,
+        String corporateEmail,
+        String fullName,
+        String position,
+        Boolean available,
+        Boolean active,
+        String createdAt,
+        String updatedAt
+) {
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\dto\member\UpdatePlantMemberRequest.java ====================
+
+package com.ezeiza.cartelera.dto.member;
+
+public record UpdatePlantMemberRequest(
+        String position,
+        Boolean active
+) {
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\dto\plant\CreatePlantRequest.java ====================
+
+package com.ezeiza.cartelera.dto.plant;
+
+public record CreatePlantRequest(
+        String code,
+        String name,
+        String displayName,
+        String displayTitle,
+        Integer sortOrder
+) {
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\dto\plant\MyPlantResponse.java ====================
+
+package com.ezeiza.cartelera.dto.plant;
+
+public record MyPlantResponse(
+        String code,
+        String name,
+        String displayName,
+        String role
+) {
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\dto\plant\PlantAdminStateResponse.java ====================
+
+package com.ezeiza.cartelera.dto.plant;
+
+import com.ezeiza.cartelera.dto.display.PlantDisplayPublishedResponse;
+import com.ezeiza.cartelera.dto.member.PlantMemberResponse;
+import com.ezeiza.cartelera.dto.succession.SuccessionOrderResponse;
+
+import java.util.List;
+
+public record PlantAdminStateResponse(
+        PlantResponse plant,
+        String currentUserRole,
+        PlantMemberResponse currentResponsible,
+        List<SuccessionOrderResponse> successionList,
+        PlantDisplayPublishedResponse publishedDisplay
+) {
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\dto\plant\PlantResponse.java ====================
+
+package com.ezeiza.cartelera.dto.plant;
+
+public record PlantResponse(
+        Long id,
+        String code,
+        String name,
+        String displayName,
+        String displayTitle,
+        Boolean active,
+        Integer sortOrder,
+        String createdAt,
+        String updatedAt
+) {
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\dto\plant\PublicPlantResponse.java ====================
+
+package com.ezeiza.cartelera.dto.plant;
+
+public record PublicPlantResponse(
+        Long id,
+        String code,
+        String name,
+        String displayName,
+        String displayTitle,
+        Integer sortOrder
+) {
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\dto\plant\UpdatePlantRequest.java ====================
+
+package com.ezeiza.cartelera.dto.plant;
+
+public record UpdatePlantRequest(
+        String name,
+        String displayName,
+        String displayTitle,
+        Integer sortOrder
+) {
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\dto\plant\UpdatePlantStatusRequest.java ====================
+
+package com.ezeiza.cartelera.dto.plant;
+
+public record UpdatePlantStatusRequest(
+        Boolean active
+) {
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\dto\succession\SuccessionOrderResponse.java ====================
+
+package com.ezeiza.cartelera.dto.succession;
+
+import com.ezeiza.cartelera.dto.member.PlantMemberResponse;
+
+public record SuccessionOrderResponse(
+        Long id,
+        String plantCode,
+        Integer orderNumber,
+        PlantMemberResponse member,
+        Boolean currentResponsible,
+        Boolean active,
+        String createdAt,
+        String updatedAt
+) {
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\dto\user\CreateGlobalUserRequest.java ====================
+
+package com.ezeiza.cartelera.dto.user;
+
+public record CreateGlobalUserRequest(
+        String username,
+        String corporateEmail,
+        String fullName,
+        String password,
+        Boolean platformAdmin
+) {
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\dto\user\GlobalUserResponse.java ====================
+
+package com.ezeiza.cartelera.dto.user;
+
+public record GlobalUserResponse(
+        Long id,
+        String username,
+        String corporateEmail,
+        String fullName,
+        Boolean active,
+        Boolean platformAdmin,
+        String entraObjectId,
+        String entraTenantId,
+        String createdAt,
+        String updatedAt
+) {
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\dto\user\PlantRoleRequest.java ====================
+
+package com.ezeiza.cartelera.dto.user;
+
+public record PlantRoleRequest(
+        String role
+) {
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\dto\user\PlantUserResponse.java ====================
+
+package com.ezeiza.cartelera.dto.user;
+
+public record PlantUserResponse(
+        Long userId,
+        String username,
+        String corporateEmail,
+        String fullName,
+        Boolean active,
+        Boolean platformAdmin,
+        String roleInPlant,
+        Long userPlantRoleId
+) {
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\dto\user\UpdateGlobalUserRequest.java ====================
+
+package com.ezeiza.cartelera.dto.user;
+
+public record UpdateGlobalUserRequest(
+        String corporateEmail,
+        String fullName,
+        Boolean platformAdmin
+) {
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\dto\user\UpdateGlobalUserStatusRequest.java ====================
+
+package com.ezeiza.cartelera.dto.user;
+
+public record UpdateGlobalUserStatusRequest(
+        Boolean active
+) {
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\dto\user\UserPlantRoleResponse.java ====================
+
+package com.ezeiza.cartelera.dto.user;
+
+public record UserPlantRoleResponse(
+        Long id,
+        Long userId,
+        String username,
+        String corporateEmail,
+        String fullName,
+        String plantCode,
+        String plantName,
+        String role,
+        Boolean active,
+        String createdAt,
+        String updatedAt
+) {
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\entity\AppUser.java ====================
+
+package com.ezeiza.cartelera.entity;
+
+import jakarta.persistence.*;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(
+        name = "app_users",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_app_users_username", columnNames = "username"),
+                @UniqueConstraint(name = "uk_app_users_corporate_email", columnNames = "corporate_email")
+        }
+)
+public class AppUser {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, unique = true)
+    private String username;
+
+    @Column(name = "corporate_email", nullable = false, unique = true)
+    private String corporateEmail;
+
+    @Column(nullable = false)
+    private String fullName;
+
+    @Column(nullable = false)
+    private String passwordHash;
+
+    private boolean active = true;
+
+    private boolean platformAdmin = false;
+
+    private String entraObjectId;
+
+    private String entraTenantId;
+
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
+
+    public AppUser() {
+    }
+
+    public AppUser(String username,
+                   String corporateEmail,
+                   String passwordHash,
+                   String fullName,
+                   boolean platformAdmin) {
+        this.username = normalizeUsername(username);
+        this.corporateEmail = normalizeEmail(corporateEmail);
+        this.passwordHash = passwordHash;
+        this.fullName = clean(fullName);
+        this.platformAdmin = platformAdmin;
+        this.active = true;
+    }
+
+    @PrePersist
+    public void prePersist() {
+        normalizeFields();
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        normalizeFields();
+        updatedAt = LocalDateTime.now();
+    }
+
+    private void normalizeFields() {
+        username = normalizeUsername(username);
+        corporateEmail = normalizeEmail(corporateEmail);
+        fullName = clean(fullName);
+    }
+
+    private static String normalizeUsername(String value) {
+        return value == null ? null : value.trim().toLowerCase();
+    }
+
+    private static String normalizeEmail(String value) {
+        return value == null ? null : value.trim().toLowerCase();
+    }
+
+    private static String clean(String value) {
+        return value == null ? null : value.trim();
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public String getCorporateEmail() {
+        return corporateEmail;
+    }
+
+    public String getFullName() {
+        return fullName;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public boolean isPlatformAdmin() {
+        return platformAdmin;
+    }
+
+    public String getEntraObjectId() {
+        return entraObjectId;
+    }
+
+    public String getEntraTenantId() {
+        return entraTenantId;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public void setCorporateEmail(String corporateEmail) {
+        this.corporateEmail = corporateEmail;
+    }
+
+    public void setFullName(String fullName) {
+        this.fullName = fullName;
+    }
+
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
+    public void setPlatformAdmin(boolean platformAdmin) {
+        this.platformAdmin = platformAdmin;
+    }
+
+    public void setEntraObjectId(String entraObjectId) {
+        this.entraObjectId = entraObjectId;
+    }
+
+    public void setEntraTenantId(String entraTenantId) {
+        this.entraTenantId = entraTenantId;
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\entity\AuditLog.java ====================
+
+package com.ezeiza.cartelera.entity;
+
+import jakarta.persistence.*;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(
+        name = "audit_logs",
+        indexes = {
+                @Index(name = "idx_audit_logs_plant_created_at", columnList = "plant_id, createdAt"),
+                @Index(name = "idx_audit_logs_created_at", columnList = "createdAt")
+        }
+)
+public class AuditLog {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    /*
+     * Puede ser null para acciones globales.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "plant_id")
+    private Plant plant;
+
+    private String username;
+
+    private String action;
+
+    private String entityName;
+
+    private Long entityId;
+
+    @Column(length = 1000)
+    private String description;
+
+    @Column(length = 1000)
+    private String oldValue;
+
+    @Column(length = 1000)
+    private String newValue;
+
+    private LocalDateTime createdAt;
+
+    public AuditLog() {
+    }
+
+    // Constructor legacy.
+    public AuditLog(String username,
+                    String action,
+                    String entityName,
+                    Long entityId,
+                    String description,
+                    String oldValue,
+                    String newValue) {
+        this.username = username;
+        this.action = action;
+        this.entityName = entityName;
+        this.entityId = entityId;
+        this.description = description;
+        this.oldValue = oldValue;
+        this.newValue = newValue;
+        this.createdAt = LocalDateTime.now();
+    }
+
+    // Constructor nuevo.
+    public AuditLog(Plant plant,
+                    String username,
+                    String action,
+                    String entityName,
+                    Long entityId,
+                    String description,
+                    String oldValue,
+                    String newValue) {
+        this.plant = plant;
+        this.username = username;
+        this.action = action;
+        this.entityName = entityName;
+        this.entityId = entityId;
+        this.description = description;
+        this.oldValue = oldValue;
+        this.newValue = newValue;
+        this.createdAt = LocalDateTime.now();
+    }
+
+    @PrePersist
+    public void prePersist() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public Plant getPlant() {
+        return plant;
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public String getAction() {
+        return action;
+    }
+
+    public String getEntityName() {
+        return entityName;
+    }
+
+    public Long getEntityId() {
+        return entityId;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public String getOldValue() {
+        return oldValue;
+    }
+
+    public String getNewValue() {
+        return newValue;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public void setPlant(Plant plant) {
+        this.plant = plant;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
+
+    public void setAction(String action) {
+        this.action = action;
+    }
+
+    public void setEntityName(String entityName) {
+        this.entityName = entityName;
+    }
+
+    public void setEntityId(Long entityId) {
+        this.entityId = entityId;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public void setOldValue(String oldValue) {
+        this.oldValue = oldValue;
+    }
+
+    public void setNewValue(String newValue) {
+        this.newValue = newValue;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\entity\DisplayPublished.java ====================
+
+package com.ezeiza.cartelera.entity;
+
+import jakarta.persistence.*;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(
+        name = "display_published",
+        indexes = {
+                @Index(name = "idx_display_published_plant_published_at", columnList = "plant_id, publishedAt")
+        }
+)
+public class DisplayPublished {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "plant_id", nullable = false)
+    private Plant plant;
+
+    private Long userId;
+
+    private String responsibleName;
+
+    private String responsiblePosition;
+
+    private String plantName;
+
+    private String mainTitle;
+
+    private LocalDateTime publishedAt;
+
+    public DisplayPublished() {
+    }
+
+    public DisplayPublished(Plant plant,
+                            Long userId,
+                            String responsibleName,
+                            String responsiblePosition,
+                            String plantName,
+                            String mainTitle) {
+        this.plant = plant;
+        this.userId = userId;
+        this.responsibleName = responsibleName;
+        this.responsiblePosition = responsiblePosition;
+        this.plantName = plantName;
+        this.mainTitle = mainTitle;
+        this.publishedAt = LocalDateTime.now();
+    }
+
+    @PrePersist
+    public void prePersist() {
+        if (publishedAt == null) {
+            publishedAt = LocalDateTime.now();
+        }
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public Plant getPlant() {
+        return plant;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public String getResponsibleName() {
+        return responsibleName;
+    }
+
+    public String getResponsiblePosition() {
+        return responsiblePosition;
+    }
+
+    public String getPlantName() {
+        return plantName;
+    }
+
+    public String getMainTitle() {
+        return mainTitle;
+    }
+
+    public LocalDateTime getPublishedAt() {
+        return publishedAt;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public void setPlant(Plant plant) {
+        this.plant = plant;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
+
+    public void setResponsibleName(String responsibleName) {
+        this.responsibleName = responsibleName;
+    }
+
+    public void setResponsiblePosition(String responsiblePosition) {
+        this.responsiblePosition = responsiblePosition;
+    }
+
+    public void setPlantName(String plantName) {
+        this.plantName = plantName;
+    }
+
+    public void setMainTitle(String mainTitle) {
+        this.mainTitle = mainTitle;
+    }
+
+    public void setPublishedAt(LocalDateTime publishedAt) {
+        this.publishedAt = publishedAt;
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\entity\Plant.java ====================
+
+package com.ezeiza.cartelera.entity;
+
+import jakarta.persistence.*;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(
+        name = "plants",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_plants_code", columnNames = "code")
+        }
+)
+public class Plant {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    // Slug usado en URLs: ezeiza, aeroparque, the-pro-laundry.
+    @Column(nullable = false, unique = true)
+    private String code;
+
+    @Column(nullable = false)
+    private String name;
+
+    @Column(nullable = false)
+    private String displayName;
+
+    // Se mantiene como tÃ­tulo principal de cartelera.
+    @Column(nullable = false)
+    private String displayTitle = "Responsable de planta";
+
+    private boolean active = true;
+
+    private Integer sortOrder = 0;
+
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
+
+    public Plant() {
+    }
+
+    public Plant(String code, String name, String displayTitle) {
+        this.code = normalizeCode(code);
+        this.name = clean(name);
+        this.displayName = clean(name);
+        this.displayTitle = clean(displayTitle);
+        this.active = true;
+    }
+
+    public Plant(String code,
+                 String name,
+                 String displayName,
+                 String displayTitle,
+                 Integer sortOrder) {
+        this.code = normalizeCode(code);
+        this.name = clean(name);
+        this.displayName = clean(displayName);
+        this.displayTitle = clean(displayTitle);
+        this.sortOrder = sortOrder != null ? sortOrder : 0;
+        this.active = true;
+    }
+
+    @PrePersist
+    public void prePersist() {
+        normalizeFields();
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        normalizeFields();
+        updatedAt = LocalDateTime.now();
+    }
+
+    private void normalizeFields() {
+        code = normalizeCode(code);
+        name = clean(name);
+        displayName = clean(displayName);
+        displayTitle = clean(displayTitle);
+
+        if (displayName == null || displayName.isBlank()) {
+            displayName = name;
+        }
+
+        if (displayTitle == null || displayTitle.isBlank()) {
+            displayTitle = "Responsable de planta";
+        }
+
+        if (sortOrder == null) {
+            sortOrder = 0;
+        }
+    }
+
+    private static String normalizeCode(String value) {
+        return value == null ? null : value.trim().toLowerCase();
+    }
+
+    private static String clean(String value) {
+        return value == null ? null : value.trim();
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getCode() {
+        return code;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public String getDisplayTitle() {
+        return displayTitle;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public Integer getSortOrder() {
+        return sortOrder;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public void setCode(String code) {
+        this.code = code;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
+    }
+
+    public void setDisplayTitle(String displayTitle) {
+        this.displayTitle = displayTitle;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+
+    public void setSortOrder(Integer sortOrder) {
+        this.sortOrder = sortOrder;
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\entity\PlantMember.java ====================
+
+package com.ezeiza.cartelera.entity;
+
+import jakarta.persistence.*;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(
+        name = "plant_members",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_plant_members_plant_user",
+                        columnNames = {"plant_id", "user_id"}
+                )
+        }
+)
+public class PlantMember {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "plant_id", nullable = false)
+    private Plant plant;
+
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private AppUser user;
+
+    private String position;
+
+    private boolean available = false;
+
+    private boolean active = true;
+
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
+
+    public PlantMember() {
+    }
+
+    public PlantMember(Plant plant, AppUser user, String position) {
+        this.plant = plant;
+        this.user = user;
+        this.position = clean(position);
+        this.available = false;
+        this.active = true;
+    }
+
+    @PrePersist
+    public void prePersist() {
+        position = clean(position);
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        position = clean(position);
+        updatedAt = LocalDateTime.now();
+    }
+
+    private static String clean(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public Plant getPlant() {
+        return plant;
+    }
+
+    public AppUser getUser() {
+        return user;
+    }
+
+    public String getPosition() {
+        return position;
+    }
+
+    public boolean isAvailable() {
+        return available;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public String getDisplayName() {
+        return user != null ? user.getFullName() : "";
+    }
+
+    public String getEmail() {
+        return user != null ? user.getCorporateEmail() : "";
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public void setPlant(Plant plant) {
+        this.plant = plant;
+    }
+
+    public void setUser(AppUser user) {
+        this.user = user;
+    }
+
+    public void setPosition(String position) {
+        this.position = position;
+    }
+
+    public void setAvailable(boolean available) {
+        this.available = available;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\entity\PlantRole.java ====================
+
+package com.ezeiza.cartelera.entity;
+
+public enum PlantRole {
+    ADMIN,
+    OPERADOR
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\entity\SuccessionOrder.java ====================
+
+package com.ezeiza.cartelera.entity;
+
+import jakarta.persistence.*;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(
+        name = "succession_orders",
+        indexes = {
+                @Index(name = "idx_succession_orders_plant_order", columnList = "plant_id, orderNumber")
+        }
+)
+public class SuccessionOrder {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "plant_id", nullable = false)
+    private Plant plant;
+
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "plant_member_id", nullable = false)
+    private PlantMember plantMember;
+
+    @Column(nullable = false)
+    private Integer orderNumber;
+
+    private boolean active = true;
+
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
+
+    public SuccessionOrder() {
+    }
+
+    public SuccessionOrder(Plant plant, PlantMember plantMember, Integer orderNumber) {
+        this.plant = plant;
+        this.plantMember = plantMember;
+        this.orderNumber = orderNumber;
+        this.active = true;
+    }
+
+    @PrePersist
+    public void prePersist() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public Plant getPlant() {
+        return plant;
+    }
+
+    public PlantMember getPlantMember() {
+        return plantMember;
+    }
+
+    public Integer getOrderNumber() {
+        return orderNumber;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public void setPlant(Plant plant) {
+        this.plant = plant;
+    }
+
+    public void setPlantMember(PlantMember plantMember) {
+        this.plantMember = plantMember;
+    }
+
+    public void setOrderNumber(Integer orderNumber) {
+        this.orderNumber = orderNumber;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\entity\UserPlantRole.java ====================
+
+package com.ezeiza.cartelera.entity;
+
+import jakarta.persistence.*;
+import java.time.LocalDateTime;
+
+@Entity
+@Table(
+        name = "user_plant_roles",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_user_plant_role_user_plant",
+                        columnNames = {"user_id", "plant_id"}
+                )
+        }
+)
+public class UserPlantRole {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private AppUser user;
+
+    @ManyToOne(optional = false, fetch = FetchType.LAZY)
+    @JoinColumn(name = "plant_id", nullable = false)
+    private Plant plant;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private PlantRole role;
+
+    private boolean active = true;
+
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
+
+    public UserPlantRole() {
+    }
+
+    public UserPlantRole(AppUser user, Plant plant, PlantRole role) {
+        this.user = user;
+        this.plant = plant;
+        this.role = role;
+        this.active = true;
+    }
+
+    @PrePersist
+    public void prePersist() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public AppUser getUser() {
+        return user;
+    }
+
+    public Plant getPlant() {
+        return plant;
+    }
+
+    public PlantRole getRole() {
+        return role;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public void setUser(AppUser user) {
+        this.user = user;
+    }
+
+    public void setPlant(Plant plant) {
+        this.plant = plant;
+    }
+
+    public void setRole(PlantRole role) {
+        this.role = role;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\exception\ApiExceptionHandler.java ====================
+
+package com.ezeiza.cartelera.exception;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+@RestControllerAdvice
+public class ApiExceptionHandler {
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<String> handleIllegalArgumentException(IllegalArgumentException ex) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ex.getMessage());
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\repository\AppUserRepository.java ====================
+
+package com.ezeiza.cartelera.repository;
+
+import com.ezeiza.cartelera.entity.AppUser;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+public interface AppUserRepository extends JpaRepository<AppUser, Long> {
+
+    Optional<AppUser> findByUsernameAndActiveTrue(String username);
+
+    Optional<AppUser> findByUsername(String username);
+
+    Optional<AppUser> findByCorporateEmail(String corporateEmail);
+
+    Optional<AppUser> findByCorporateEmailAndActiveTrue(String corporateEmail);
+
+    boolean existsByUsername(String username);
+
+    boolean existsByCorporateEmail(String corporateEmail);
+
+    long countByPlatformAdminTrueAndActiveTrue();
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\repository\AuditLogRepository.java ====================
+
+package com.ezeiza.cartelera.repository;
+
+import com.ezeiza.cartelera.entity.AuditLog;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
+
+    /*
+     * Legacy/global actual.
+     */
+    List<AuditLog> findTop100ByOrderByCreatedAtDesc();
+
+    /*
+     * Nuevo modelo por planta.
+     */
+    List<AuditLog> findTop100ByPlant_CodeOrderByCreatedAtDesc(String plantCode);
+
+    /*
+     * Acciones globales, plant = null.
+     */
+    List<AuditLog> findTop100ByPlantIsNullOrderByCreatedAtDesc();
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\repository\DisplayPublishedRepository.java ====================
+
+package com.ezeiza.cartelera.repository;
+
+import com.ezeiza.cartelera.entity.DisplayPublished;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+public interface DisplayPublishedRepository extends JpaRepository<DisplayPublished, Long> {
+
+    Optional<DisplayPublished> findTopByPlant_CodeOrderByPublishedAtDesc(String plantCode);
+
+    Optional<DisplayPublished> findTopByPlant_CodeOrderByIdDesc(String plantCode);
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\repository\PlantMemberRepository.java ====================
+
+package com.ezeiza.cartelera.repository;
+
+import com.ezeiza.cartelera.entity.AppUser;
+import com.ezeiza.cartelera.entity.Plant;
+import com.ezeiza.cartelera.entity.PlantMember;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface PlantMemberRepository extends JpaRepository<PlantMember, Long> {
+
+    Optional<PlantMember> findByPlantAndUser(Plant plant, AppUser user);
+
+    Optional<PlantMember> findByPlantAndUserAndActiveTrue(Plant plant, AppUser user);
+
+    Optional<PlantMember> findByIdAndPlant_Code(Long id, String plantCode);
+
+    Optional<PlantMember> findByIdAndPlant_CodeAndActiveTrue(Long id, String plantCode);
+
+    List<PlantMember> findByPlantAndActiveTrueOrderByUser_FullNameAsc(Plant plant);
+
+    List<PlantMember> findByPlant_CodeAndActiveTrueOrderByUser_FullNameAsc(String plantCode);
+
+    List<PlantMember> findByPlant_CodeOrderByUser_FullNameAsc(String plantCode);
+
+    boolean existsByPlantAndUser(Plant plant, AppUser user);
+
+    boolean existsByPlantAndUserAndActiveTrue(Plant plant, AppUser user);
+
+    boolean existsByPlant_CodeAndUser_IdAndActiveTrue(String plantCode, Long userId);
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\repository\PlantRepository.java ====================
+
+package com.ezeiza.cartelera.repository;
+
+import com.ezeiza.cartelera.entity.Plant;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface PlantRepository extends JpaRepository<Plant, Long> {
+
+    Optional<Plant> findByCode(String code);
+
+    Optional<Plant> findByCodeAndActiveTrue(String code);
+
+    boolean existsByCode(String code);
+
+    List<Plant> findByActiveTrueOrderBySortOrderAscNameAsc();
+
+    List<Plant> findAllByOrderBySortOrderAscNameAsc();
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\repository\SuccessionOrderRepository.java ====================
+
+package com.ezeiza.cartelera.repository;
+
+import com.ezeiza.cartelera.entity.SuccessionOrder;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface SuccessionOrderRepository extends JpaRepository<SuccessionOrder, Long> {
+
+    List<SuccessionOrder> findByPlant_CodeAndActiveTrueOrderByOrderNumberAsc(String plantCode);
+
+    List<SuccessionOrder> findByPlant_CodeOrderByOrderNumberAsc(String plantCode);
+
+    Optional<SuccessionOrder> findByPlant_CodeAndPlantMember_Id(
+            String plantCode,
+            Long plantMemberId
+    );
+
+    Optional<SuccessionOrder> findByPlant_CodeAndPlantMember_IdAndActiveTrue(
+            String plantCode,
+            Long plantMemberId
+    );
+
+    Optional<SuccessionOrder> findByPlant_CodeAndOrderNumberAndActiveTrue(
+            String plantCode,
+            Integer orderNumber
+    );
+
+    boolean existsByPlant_CodeAndPlantMember_IdAndActiveTrue(
+            String plantCode,
+            Long plantMemberId
+    );
+
+    @Query("""
+            select coalesce(max(s.orderNumber), 0)
+            from SuccessionOrder s
+            where s.active = true
+              and s.plant.code = :plantCode
+            """)
+    Integer findMaxActiveOrderNumberByPlantCode(String plantCode);
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\repository\UserPlantRoleRepository.java ====================
+
+package com.ezeiza.cartelera.repository;
+
+import com.ezeiza.cartelera.entity.AppUser;
+import com.ezeiza.cartelera.entity.Plant;
+import com.ezeiza.cartelera.entity.PlantRole;
+import com.ezeiza.cartelera.entity.UserPlantRole;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface UserPlantRoleRepository extends JpaRepository<UserPlantRole, Long> {
+
+    Optional<UserPlantRole> findByUserAndPlant(AppUser user, Plant plant);
+
+    Optional<UserPlantRole> findByUserAndPlantAndActiveTrue(AppUser user, Plant plant);
+
+    Optional<UserPlantRole> findByUser_IdAndPlant_CodeAndActiveTrue(Long userId, String plantCode);
+
+    List<UserPlantRole> findByUserAndActiveTrue(AppUser user);
+
+    List<UserPlantRole> findByUser_IdAndActiveTrue(Long userId);
+
+    List<UserPlantRole> findByPlantAndActiveTrue(Plant plant);
+
+    List<UserPlantRole> findByPlant_CodeAndActiveTrue(String plantCode);
+
+    long countByPlantAndRoleAndActiveTrue(Plant plant, PlantRole role);
+
+    long countByPlantAndRoleAndActiveTrueAndUser_ActiveTrue(
+            Plant plant,
+            PlantRole role
+    );
+
+    boolean existsByUserAndPlantAndActiveTrue(AppUser user, Plant plant);
+
+    boolean existsByUser_IdAndPlant_CodeAndActiveTrue(Long userId, String plantCode);
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\service\audit\AuditService.java ====================
+
+package com.ezeiza.cartelera.service.audit;
+
+import com.ezeiza.cartelera.entity.AuditLog;
+import com.ezeiza.cartelera.entity.Plant;
+import com.ezeiza.cartelera.repository.AuditLogRepository;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+public class AuditService {
+
+    private final AuditLogRepository auditLogRepository;
+
+    public AuditService(AuditLogRepository auditLogRepository) {
+        this.auditLogRepository = auditLogRepository;
+    }
+
+    /*
+     * Registro legacy/global.
+     * Se mantiene para que PersonService, DisplayService y UserManagementService
+     * actuales sigan compilando y funcionando.
+     */
+    public void register(String action,
+                         String entityName,
+                         Long entityId,
+                         String description,
+                         String oldValue,
+                         String newValue) {
+        registerGlobal(action, entityName, entityId, description, oldValue, newValue);
+    }
+
+    /*
+     * Registro global explÃ­cito.
+     * Usar para acciones sin planta: crear usuario global, actualizar usuario global,
+     * cambios tÃ©cnicos de plataforma, etc.
+     */
+    public void registerGlobal(String action,
+                               String entityName,
+                               Long entityId,
+                               String description,
+                               String oldValue,
+                               String newValue) {
+        String username = getCurrentUsername();
+
+        AuditLog auditLog = new AuditLog(
+                null,
+                username,
+                action,
+                entityName,
+                entityId,
+                description,
+                oldValue,
+                newValue
+        );
+
+        auditLogRepository.save(auditLog);
+    }
+
+    /*
+     * Registro asociado a planta.
+     * Usar para acciones operativas: roles por planta, sucesiÃ³n, disponibilidad,
+     * publicaciÃ³n de display, miembros de planta, etc.
+     */
+    public void registerForPlant(Plant plant,
+                                 String action,
+                                 String entityName,
+                                 Long entityId,
+                                 String description,
+                                 String oldValue,
+                                 String newValue) {
+        String username = getCurrentUsername();
+
+        AuditLog auditLog = new AuditLog(
+                plant,
+                username,
+                action,
+                entityName,
+                entityId,
+                description,
+                oldValue,
+                newValue
+        );
+
+        auditLogRepository.save(auditLog);
+    }
+
+    public List<AuditLog> findLatest() {
+        return auditLogRepository.findTop100ByOrderByCreatedAtDesc();
+    }
+
+    public List<AuditLog> findLatestByPlantCode(String plantCode) {
+        return auditLogRepository.findTop100ByPlant_CodeOrderByCreatedAtDesc(
+                normalizePlantCode(plantCode)
+        );
+    }
+
+    public List<AuditLog> findLatestGlobal() {
+        return auditLogRepository.findTop100ByPlantIsNullOrderByCreatedAtDesc();
+    }
+
+    public String getCurrentUsername() {
+        Authentication authentication = SecurityContextHolder
+                .getContext()
+                .getAuthentication();
+
+        if (authentication == null || authentication.getName() == null) {
+            return "usuario_desarrollo";
+        }
+
+        String username = authentication.getName();
+
+        if ("anonymousUser".equals(username)) {
+            return "usuario_desarrollo";
+        }
+
+        return username;
+    }
+
+    private String normalizePlantCode(String plantCode) {
+        return plantCode == null ? null : plantCode.trim().toLowerCase();
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\service\auth\AppUserDetailsService.java ====================
+
+package com.ezeiza.cartelera.service.auth;
+
+import com.ezeiza.cartelera.entity.AppUser;
+import com.ezeiza.cartelera.repository.AppUserRepository;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+
+@Service
+public class AppUserDetailsService implements UserDetailsService {
+
+    private final AppUserRepository appUserRepository;
+
+    public AppUserDetailsService(AppUserRepository appUserRepository) {
+        this.appUserRepository = appUserRepository;
+    }
+
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        String normalizedUsername = username != null
+                ? username.trim().toLowerCase()
+                : null;
+
+        AppUser appUser = appUserRepository.findByUsernameAndActiveTrue(normalizedUsername)
+                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado"));
+
+        return User.withUsername(appUser.getUsername())
+                .password(appUser.getPasswordHash())
+                .roles(appUser.isPlatformAdmin() ? "PLATFORM_ADMIN" : "USER")
+                .build();
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\service\display\DisplayService.java ====================
+
+package com.ezeiza.cartelera.service.display;
+
+import com.ezeiza.cartelera.entity.DisplayPublished;
+import com.ezeiza.cartelera.entity.Plant;
+import com.ezeiza.cartelera.entity.PlantMember;
+import com.ezeiza.cartelera.repository.DisplayPublishedRepository;
+import com.ezeiza.cartelera.service.audit.AuditService;
+import com.ezeiza.cartelera.service.plant.PlantPermissionService;
+import com.ezeiza.cartelera.service.plant.PlantService;
+import com.ezeiza.cartelera.service.succession.SuccessionService;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
+
+@Service
+public class DisplayService {
+
+    private final DisplayPublishedRepository displayPublishedRepository;
+    private final AuditService auditService;
+    private final PlantService plantService;
+    private final PlantPermissionService plantPermissionService;
+    private final SuccessionService successionService;
+
+    public DisplayService(DisplayPublishedRepository displayPublishedRepository,
+                          AuditService auditService,
+                          PlantService plantService,
+                          PlantPermissionService plantPermissionService,
+                          SuccessionService successionService) {
+        this.displayPublishedRepository = displayPublishedRepository;
+        this.auditService = auditService;
+        this.plantService = plantService;
+        this.plantPermissionService = plantPermissionService;
+        this.successionService = successionService;
+    }
+
+    public Optional<PlantMember> calculateCurrentResponsible(String plantCode) {
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        plantPermissionService.requirePlantOperatorOrAdmin(plant.getCode());
+
+        return successionService.calculateCurrentResponsible(plant.getCode());
+    }
+
+    public Optional<PlantMember> calculateCurrentResponsiblePublic(String plantCode) {
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        return successionService.calculateCurrentResponsible(plant.getCode());
+    }
+
+    @Transactional
+    public DisplayPublished publishCurrentDisplay(String plantCode) {
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        plantPermissionService.requirePlantOperatorOrAdmin(plant.getCode());
+
+        Optional<PlantMember> responsibleOptional =
+                successionService.calculateCurrentResponsible(plant.getCode());
+
+        DisplayPublished published;
+
+        if (responsibleOptional.isPresent()) {
+            PlantMember responsible = responsibleOptional.get();
+
+            published = new DisplayPublished(
+                    plant,
+                    responsible.getUser().getId(),
+                    responsible.getDisplayName(),
+                    responsible.getPosition(),
+                    plant.getDisplayName(),
+                    plant.getDisplayTitle()
+            );
+        } else {
+            published = new DisplayPublished(
+                    plant,
+                    null,
+                    "Sin responsable disponible",
+                    null,
+                    plant.getDisplayName(),
+                    plant.getDisplayTitle()
+            );
+        }
+
+        DisplayPublished savedPublished = displayPublishedRepository.save(published);
+
+        auditService.registerForPlant(
+                plant,
+                "PUBLISH_DISPLAY",
+                "DisplayPublished",
+                savedPublished.getId(),
+                savedPublished.getUserId() != null
+                        ? "Se publicÃ³ la cartelera de " + plant.getCode()
+                          + " con responsable " + savedPublished.getResponsibleName()
+                        : "Se publicÃ³ la cartelera de " + plant.getCode()
+                          + " sin responsable disponible",
+                null,
+                "userId=" + savedPublished.getUserId()
+                        + ", responsibleName=" + savedPublished.getResponsibleName()
+                        + ", plantCode=" + plant.getCode()
+        );
+
+        return savedPublished;
+    }
+
+    public Optional<DisplayPublished> getLastPublishedDisplay(String plantCode) {
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        plantPermissionService.requirePlantOperatorOrAdmin(plant.getCode());
+
+        return displayPublishedRepository.findTopByPlant_CodeOrderByPublishedAtDesc(plant.getCode());
+    }
+
+    public Optional<DisplayPublished> getLastPublishedDisplayPublic(String plantCode) {
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        return displayPublishedRepository.findTopByPlant_CodeOrderByPublishedAtDesc(plant.getCode());
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\service\member\PlantMemberService.java ====================
+
+package com.ezeiza.cartelera.service.member;
+
+import com.ezeiza.cartelera.entity.AppUser;
+import com.ezeiza.cartelera.entity.Plant;
+import com.ezeiza.cartelera.entity.PlantMember;
+import com.ezeiza.cartelera.entity.SuccessionOrder;
+import com.ezeiza.cartelera.repository.AppUserRepository;
+import com.ezeiza.cartelera.repository.PlantMemberRepository;
+import com.ezeiza.cartelera.repository.SuccessionOrderRepository;
+import com.ezeiza.cartelera.service.audit.AuditService;
+import com.ezeiza.cartelera.service.plant.PlantPermissionService;
+import com.ezeiza.cartelera.service.plant.PlantService;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+@Service
+public class PlantMemberService {
+
+    private final PlantMemberRepository plantMemberRepository;
+    private final AppUserRepository appUserRepository;
+    private final SuccessionOrderRepository successionOrderRepository;
+    private final PlantService plantService;
+    private final PlantPermissionService plantPermissionService;
+    private final AuditService auditService;
+
+    public PlantMemberService(PlantMemberRepository plantMemberRepository,
+                              AppUserRepository appUserRepository,
+                              SuccessionOrderRepository successionOrderRepository,
+                              PlantService plantService,
+                              PlantPermissionService plantPermissionService,
+                              AuditService auditService) {
+        this.plantMemberRepository = plantMemberRepository;
+        this.appUserRepository = appUserRepository;
+        this.successionOrderRepository = successionOrderRepository;
+        this.plantService = plantService;
+        this.plantPermissionService = plantPermissionService;
+        this.auditService = auditService;
+    }
+
+    public List<PlantMember> findActiveMembers(String plantCode) {
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        plantPermissionService.requirePlantOperatorOrAdmin(plant.getCode());
+
+        return plantMemberRepository.findByPlantAndActiveTrueOrderByUser_FullNameAsc(plant);
+    }
+
+    public List<PlantMember> findAllMembersByPlant(String plantCode) {
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        plantPermissionService.requirePlantAdmin(plant.getCode());
+
+        return plantMemberRepository.findByPlant_CodeOrderByUser_FullNameAsc(plant.getCode());
+    }
+
+    public PlantMember getActiveMember(String plantCode, Long memberId) {
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        plantPermissionService.requirePlantOperatorOrAdmin(plant.getCode());
+
+        return plantMemberRepository.findByIdAndPlant_CodeAndActiveTrue(memberId, plant.getCode())
+                .orElseThrow(() -> new IllegalArgumentException("Miembro de planta no encontrado"));
+    }
+
+    @Transactional
+    public PlantMember addMember(String plantCode,
+                                 Long userId,
+                                 String position) {
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        plantPermissionService.requirePlantAdmin(plant.getCode());
+
+        AppUser user = getUserOrThrow(userId);
+
+        if (!user.isActive()) {
+            throw new IllegalArgumentException("No se puede agregar un usuario inactivo como miembro de planta");
+        }
+
+        PlantMember savedMember = plantMemberRepository.findByPlantAndUser(plant, user)
+                .map(existing -> {
+                    boolean wasActive = existing.isActive();
+                    PlantMember reactivated = reactivateExistingMember(existing, position);
+
+                    auditService.registerForPlant(
+                            plant,
+                            wasActive ? "UPDATE_PLANT_MEMBER" : "ADD_PLANT_MEMBER",
+                            "PlantMember",
+                            reactivated.getId(),
+                            wasActive
+                                    ? "Se actualizÃ³ el miembro de planta " + reactivated.getDisplayName()
+                                    : "Se reactivÃ³ como miembro de planta a " + reactivated.getDisplayName(),
+                            "active=" + wasActive,
+                            "active=true, position=" + reactivated.getPosition()
+                    );
+
+                    return reactivated;
+                })
+                .orElseGet(() -> {
+                    PlantMember created = createNewMember(plant, user, position);
+
+                    auditService.registerForPlant(
+                            plant,
+                            "ADD_PLANT_MEMBER",
+                            "PlantMember",
+                            created.getId(),
+                            "Se agregÃ³ como miembro de planta a " + created.getDisplayName()
+                                    + " en " + plant.getCode(),
+                            null,
+                            "userId=" + user.getId()
+                                    + ", position=" + created.getPosition()
+                                    + ", available=" + created.isAvailable()
+                                    + ", active=" + created.isActive()
+                    );
+
+                    return created;
+                });
+
+        return savedMember;
+    }
+
+    @Transactional
+    public PlantMember updateMember(String plantCode,
+                                    Long memberId,
+                                    String position,
+                                    Boolean active) {
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        plantPermissionService.requirePlantAdmin(plant.getCode());
+
+        PlantMember member = plantMemberRepository.findByIdAndPlant_Code(memberId, plant.getCode())
+                .orElseThrow(() -> new IllegalArgumentException("Miembro de planta no encontrado"));
+
+        String oldValue = "position=" + member.getPosition()
+                + ", available=" + member.isAvailable()
+                + ", active=" + member.isActive();
+
+        if (position != null) {
+            member.setPosition(position);
+        }
+
+        if (active != null) {
+            if (active && !member.getUser().isActive()) {
+                throw new IllegalArgumentException("No se puede activar un miembro con usuario global inactivo");
+            }
+
+            member.setActive(active);
+
+            if (!active) {
+                member.setAvailable(false);
+                deactivateSuccessionIfActive(plant, member);
+            }
+        }
+
+        PlantMember savedMember = plantMemberRepository.save(member);
+
+        String newValue = "position=" + savedMember.getPosition()
+                + ", available=" + savedMember.isAvailable()
+                + ", active=" + savedMember.isActive();
+
+        auditService.registerForPlant(
+                plant,
+                "UPDATE_PLANT_MEMBER",
+                "PlantMember",
+                savedMember.getId(),
+                "Se actualizÃ³ el miembro de planta " + savedMember.getDisplayName(),
+                oldValue,
+                newValue
+        );
+
+        return savedMember;
+    }
+
+    @Transactional
+    public void removeMember(String plantCode,
+                             Long memberId) {
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        plantPermissionService.requirePlantAdmin(plant.getCode());
+
+        PlantMember member = plantMemberRepository.findByIdAndPlant_CodeAndActiveTrue(memberId, plant.getCode())
+                .orElseThrow(() -> new IllegalArgumentException("Miembro de planta no encontrado"));
+
+        String oldValue = "active=" + member.isActive()
+                + ", available=" + member.isAvailable()
+                + ", position=" + member.getPosition();
+
+        member.setActive(false);
+        member.setAvailable(false);
+
+        deactivateSuccessionIfActive(plant, member);
+
+        plantMemberRepository.save(member);
+
+        auditService.registerForPlant(
+                plant,
+                "REMOVE_PLANT_MEMBER",
+                "PlantMember",
+                member.getId(),
+                "Se quitÃ³ como miembro de planta a " + member.getDisplayName(),
+                oldValue,
+                "active=false, available=false, position=" + member.getPosition()
+        );
+    }
+
+    @Transactional
+    public PlantMember updateAvailability(String plantCode,
+                                          Long memberId,
+                                          boolean available) {
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        plantPermissionService.requirePlantOperatorOrAdmin(plant.getCode());
+
+        PlantMember member = plantMemberRepository.findByIdAndPlant_CodeAndActiveTrue(memberId, plant.getCode())
+                .orElseThrow(() -> new IllegalArgumentException("Miembro de planta no encontrado"));
+
+        if (!member.getUser().isActive()) {
+            throw new IllegalArgumentException("No se puede cambiar disponibilidad de un usuario inactivo");
+        }
+
+        boolean oldAvailability = member.isAvailable();
+
+        member.setAvailable(available);
+
+        PlantMember savedMember = plantMemberRepository.save(member);
+
+        auditService.registerForPlant(
+                plant,
+                "CHANGE_AVAILABILITY",
+                "PlantMember",
+                savedMember.getId(),
+                "Se cambiÃ³ la disponibilidad de " + savedMember.getDisplayName()
+                        + " a " + (available ? "Disponible" : "No disponible"),
+                "available=" + oldAvailability,
+                "available=" + available
+        );
+
+        return savedMember;
+    }
+
+    private PlantMember createNewMember(Plant plant,
+                                        AppUser user,
+                                        String position) {
+        PlantMember member = new PlantMember(plant, user, position);
+        member.setActive(true);
+        member.setAvailable(false);
+
+        return plantMemberRepository.save(member);
+    }
+
+    private PlantMember reactivateExistingMember(PlantMember existing,
+                                                 String position) {
+        if (!existing.getUser().isActive()) {
+            throw new IllegalArgumentException("No se puede reactivar un miembro con usuario global inactivo");
+        }
+
+        existing.setActive(true);
+
+        if (position != null) {
+            existing.setPosition(position);
+        }
+
+        return plantMemberRepository.save(existing);
+    }
+
+    private void deactivateSuccessionIfActive(Plant plant,
+                                              PlantMember member) {
+        successionOrderRepository
+                .findByPlant_CodeAndPlantMember_IdAndActiveTrue(plant.getCode(), member.getId())
+                .ifPresent(successionOrder -> {
+                    successionOrder.setActive(false);
+                    successionOrderRepository.save(successionOrder);
+                    normalizeSuccessionOrderInternal(plant.getCode());
+                });
+    }
+
+    private void normalizeSuccessionOrderInternal(String plantCode) {
+        List<SuccessionOrder> activeList = successionOrderRepository
+                .findByPlant_CodeAndActiveTrueOrderByOrderNumberAsc(plantCode);
+
+        int order = 1;
+
+        for (SuccessionOrder item : activeList) {
+            item.setOrderNumber(order);
+            successionOrderRepository.save(item);
+            order++;
+        }
+    }
+
+    private AppUser getUserOrThrow(Long userId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("El usuario es obligatorio");
+        }
+
+        return appUserRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\service\plant\PlantPermissionService.java ====================
+
+package com.ezeiza.cartelera.service.plant;
+
+import com.ezeiza.cartelera.entity.AppUser;
+import com.ezeiza.cartelera.entity.Plant;
+import com.ezeiza.cartelera.entity.PlantRole;
+import com.ezeiza.cartelera.entity.UserPlantRole;
+import com.ezeiza.cartelera.repository.AppUserRepository;
+import com.ezeiza.cartelera.repository.UserPlantRoleRepository;
+import com.ezeiza.cartelera.service.plant.PlantService;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+
+import java.util.Optional;
+
+@Service
+public class PlantPermissionService {
+
+    private final AppUserRepository appUserRepository;
+    private final UserPlantRoleRepository userPlantRoleRepository;
+    private final PlantService plantService;
+
+    public PlantPermissionService(AppUserRepository appUserRepository,
+                                  UserPlantRoleRepository userPlantRoleRepository,
+                                  PlantService plantService) {
+        this.appUserRepository = appUserRepository;
+        this.userPlantRoleRepository = userPlantRoleRepository;
+        this.plantService = plantService;
+    }
+
+    public AppUser getCurrentUserOrThrow() {
+        String username = getCurrentUsername();
+
+        return appUserRepository.findByUsernameAndActiveTrue(username)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario autenticado no encontrado o inactivo"));
+    }
+
+    public Optional<AppUser> getCurrentUser() {
+        String username = getCurrentUsernameOrNull();
+
+        if (username == null) {
+            return Optional.empty();
+        }
+
+        return appUserRepository.findByUsernameAndActiveTrue(username);
+    }
+
+    public boolean isCurrentUserPlatformAdmin() {
+        return getCurrentUser()
+                .map(AppUser::isPlatformAdmin)
+                .orElse(false);
+    }
+
+    public boolean hasAnyPlantRole(String plantCode) {
+        return hasPlantRole(plantCode, PlantRole.ADMIN)
+                || hasPlantRole(plantCode, PlantRole.OPERADOR);
+    }
+
+    public boolean hasPlantAdminRole(String plantCode) {
+        return hasPlantRole(plantCode, PlantRole.ADMIN);
+    }
+
+    public boolean hasPlantOperatorRole(String plantCode) {
+        return hasPlantRole(plantCode, PlantRole.OPERADOR);
+    }
+
+    public boolean hasPlantRole(String plantCode, PlantRole role) {
+        AppUser currentUser = getCurrentUser().orElse(null);
+
+        if (currentUser == null) {
+            return false;
+        }
+
+        if (!currentUser.isActive()) {
+            return false;
+        }
+
+        if (currentUser.isPlatformAdmin()) {
+            return true;
+        }
+
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        return userPlantRoleRepository
+                .findByUserAndPlantAndActiveTrue(currentUser, plant)
+                .map(userPlantRole -> userPlantRole.getRole() == role)
+                .orElse(false);
+    }
+
+    public Optional<PlantRole> getCurrentUserRoleForPlant(String plantCode) {
+        AppUser currentUser = getCurrentUser().orElse(null);
+
+        if (currentUser == null || !currentUser.isActive()) {
+            return Optional.empty();
+        }
+
+        if (currentUser.isPlatformAdmin()) {
+            return Optional.of(PlantRole.ADMIN);
+        }
+
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        return userPlantRoleRepository.findByUserAndPlantAndActiveTrue(currentUser, plant)
+                .map(UserPlantRole::getRole);
+    }
+
+    public void requirePlatformAdmin() {
+        AppUser currentUser = getCurrentUserOrThrow();
+
+        if (!currentUser.isPlatformAdmin()) {
+            throw new IllegalArgumentException("Se requiere permiso de administrador de plataforma");
+        }
+    }
+
+    public void requirePlantAdmin(String plantCode) {
+        AppUser currentUser = getCurrentUserOrThrow();
+
+        if (currentUser.isPlatformAdmin()) {
+            return;
+        }
+
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        boolean allowed = userPlantRoleRepository
+                .findByUserAndPlantAndActiveTrue(currentUser, plant)
+                .map(role -> role.getRole() == PlantRole.ADMIN)
+                .orElse(false);
+
+        if (!allowed) {
+            throw new IllegalArgumentException("Se requiere permiso ADMIN en la planta " + plant.getCode());
+        }
+    }
+
+    public void requirePlantOperatorOrAdmin(String plantCode) {
+        AppUser currentUser = getCurrentUserOrThrow();
+
+        if (currentUser.isPlatformAdmin()) {
+            return;
+        }
+
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        boolean allowed = userPlantRoleRepository
+                .findByUserAndPlantAndActiveTrue(currentUser, plant)
+                .map(role -> role.getRole() == PlantRole.ADMIN || role.getRole() == PlantRole.OPERADOR)
+                .orElse(false);
+
+        if (!allowed) {
+            throw new IllegalArgumentException(
+                    "Se requiere permiso ADMIN u OPERADOR en la planta " + plant.getCode()
+            );
+        }
+    }
+
+    public String getCurrentUsername() {
+        String username = getCurrentUsernameOrNull();
+
+        if (username == null) {
+            throw new IllegalArgumentException("Usuario no autenticado");
+        }
+
+        return username;
+    }
+
+    private String getCurrentUsernameOrNull() {
+        Authentication authentication = SecurityContextHolder
+                .getContext()
+                .getAuthentication();
+
+        if (authentication == null || authentication.getName() == null) {
+            return null;
+        }
+
+        String username = authentication.getName();
+
+        if ("anonymousUser".equals(username)) {
+            return null;
+        }
+
+        return username;
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\service\plant\PlantService.java ====================
+
+package com.ezeiza.cartelera.service.plant;
+
+import com.ezeiza.cartelera.entity.Plant;
+import com.ezeiza.cartelera.repository.PlantRepository;
+import com.ezeiza.cartelera.service.audit.AuditService;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+@Service
+public class PlantService {
+
+    private final PlantRepository plantRepository;
+    private final AuditService auditService;
+
+    public PlantService(PlantRepository plantRepository,
+                        AuditService auditService) {
+        this.plantRepository = plantRepository;
+        this.auditService = auditService;
+    }
+
+    public List<Plant> findAll() {
+        return plantRepository.findAllByOrderBySortOrderAscNameAsc();
+    }
+
+    public List<Plant> findActive() {
+        return plantRepository.findByActiveTrueOrderBySortOrderAscNameAsc();
+    }
+
+    public Plant getByCode(String plantCode) {
+        String normalizedCode = normalizeCode(plantCode);
+
+        return plantRepository.findByCode(normalizedCode)
+                .orElseThrow(() -> new IllegalArgumentException("Planta no encontrada: " + plantCode));
+    }
+
+    public Plant getActiveByCode(String plantCode) {
+        String normalizedCode = normalizeCode(plantCode);
+
+        return plantRepository.findByCodeAndActiveTrue(normalizedCode)
+                .orElseThrow(() -> new IllegalArgumentException("Planta no encontrada o inactiva: " + plantCode));
+    }
+
+    @Transactional
+    public Plant createPlant(String code,
+                             String name,
+                             String displayName,
+                             String displayTitle,
+                             Integer sortOrder) {
+        String cleanCode = normalizeCode(code);
+        String cleanName = cleanRequired(name, "El nombre de la planta es obligatorio");
+        String cleanDisplayName = cleanOptional(displayName);
+        String cleanDisplayTitle = cleanOptional(displayTitle);
+
+        validateSlug(cleanCode);
+
+        if (plantRepository.existsByCode(cleanCode)) {
+            throw new IllegalArgumentException("Ya existe una planta con cÃ³digo: " + cleanCode);
+        }
+
+        if (cleanDisplayName == null || cleanDisplayName.isBlank()) {
+            cleanDisplayName = cleanName;
+        }
+
+        if (cleanDisplayTitle == null || cleanDisplayTitle.isBlank()) {
+            cleanDisplayTitle = "Responsable de planta";
+        }
+
+        Plant plant = new Plant(
+                cleanCode,
+                cleanName,
+                cleanDisplayName,
+                cleanDisplayTitle,
+                sortOrder != null ? sortOrder : 0
+        );
+
+        Plant savedPlant = plantRepository.save(plant);
+
+        auditService.registerGlobal(
+                "CREATE_PLANT",
+                "Plant",
+                savedPlant.getId(),
+                "Se creÃ³ la planta " + savedPlant.getDisplayName() + " (" + savedPlant.getCode() + ")",
+                null,
+                "code=" + savedPlant.getCode()
+                        + ", name=" + savedPlant.getName()
+                        + ", displayName=" + savedPlant.getDisplayName()
+                        + ", active=" + savedPlant.isActive()
+        );
+
+        return savedPlant;
+    }
+
+    @Transactional
+    public Plant updatePlant(String plantCode,
+                             String name,
+                             String displayName,
+                             String displayTitle,
+                             Integer sortOrder) {
+        Plant plant = getByCode(plantCode);
+
+        String oldValue = "name=" + plant.getName()
+                + ", displayName=" + plant.getDisplayName()
+                + ", displayTitle=" + plant.getDisplayTitle()
+                + ", sortOrder=" + plant.getSortOrder();
+
+        if (name != null) {
+            plant.setName(cleanRequired(name, "El nombre de la planta es obligatorio"));
+        }
+
+        if (displayName != null) {
+            String cleanDisplayName = cleanOptional(displayName);
+            plant.setDisplayName(
+                    cleanDisplayName != null && !cleanDisplayName.isBlank()
+                            ? cleanDisplayName
+                            : plant.getName()
+            );
+        }
+
+        if (displayTitle != null) {
+            String cleanDisplayTitle = cleanOptional(displayTitle);
+            plant.setDisplayTitle(
+                    cleanDisplayTitle != null && !cleanDisplayTitle.isBlank()
+                            ? cleanDisplayTitle
+                            : "Responsable de planta"
+            );
+        }
+
+        if (sortOrder != null) {
+            plant.setSortOrder(sortOrder);
+        }
+
+        Plant savedPlant = plantRepository.save(plant);
+
+        String newValue = "name=" + savedPlant.getName()
+                + ", displayName=" + savedPlant.getDisplayName()
+                + ", displayTitle=" + savedPlant.getDisplayTitle()
+                + ", sortOrder=" + savedPlant.getSortOrder();
+
+        auditService.registerGlobal(
+                "UPDATE_PLANT",
+                "Plant",
+                savedPlant.getId(),
+                "Se actualizÃ³ la planta " + savedPlant.getDisplayName(),
+                oldValue,
+                newValue
+        );
+
+        return savedPlant;
+    }
+
+    @Transactional
+    public Plant updateStatus(String plantCode, boolean active) {
+        Plant plant = getByCode(plantCode);
+
+        boolean oldStatus = plant.isActive();
+
+        if (oldStatus == active) {
+            return plant;
+        }
+
+        plant.setActive(active);
+
+        Plant savedPlant = plantRepository.save(plant);
+
+        auditService.registerGlobal(
+                active ? "ENABLE_PLANT" : "DISABLE_PLANT",
+                "Plant",
+                savedPlant.getId(),
+                active
+                        ? "Se activÃ³ la planta " + savedPlant.getDisplayName()
+                        : "Se desactivÃ³ la planta " + savedPlant.getDisplayName(),
+                "active=" + oldStatus,
+                "active=" + active
+        );
+
+        return savedPlant;
+    }
+
+    public String normalizeCode(String value) {
+        if (value == null) {
+            throw new IllegalArgumentException("El cÃ³digo de planta es obligatorio");
+        }
+
+        String normalized = value.trim().toLowerCase();
+
+        if (normalized.isBlank()) {
+            throw new IllegalArgumentException("El cÃ³digo de planta es obligatorio");
+        }
+
+        return normalized;
+    }
+
+    public void validateSlug(String code) {
+        if (code == null || code.isBlank()) {
+            throw new IllegalArgumentException("El cÃ³digo de planta es obligatorio");
+        }
+
+        if (!code.matches("^[a-z0-9]+(?:-[a-z0-9]+)*$")) {
+            throw new IllegalArgumentException(
+                    "El cÃ³digo de planta debe ser un slug vÃ¡lido. Ejemplo: ezeiza, aeroparque, the-pro-laundry"
+            );
+        }
+    }
+
+    private String cleanRequired(String value, String errorMessage) {
+        if (value == null || value.trim().isBlank()) {
+            throw new IllegalArgumentException(errorMessage);
+        }
+
+        return value.trim();
+    }
+
+    private String cleanOptional(String value) {
+        return value == null ? null : value.trim();
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\service\succession\SuccessionService.java ====================
+
+package com.ezeiza.cartelera.service.succession;
+
+import com.ezeiza.cartelera.entity.Plant;
+import com.ezeiza.cartelera.entity.PlantMember;
+import com.ezeiza.cartelera.entity.SuccessionOrder;
+import com.ezeiza.cartelera.repository.PlantMemberRepository;
+import com.ezeiza.cartelera.repository.SuccessionOrderRepository;
+import com.ezeiza.cartelera.service.audit.AuditService;
+import com.ezeiza.cartelera.service.plant.PlantPermissionService;
+import com.ezeiza.cartelera.service.plant.PlantService;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Optional;
+
+@Service
+public class SuccessionService {
+
+    private final SuccessionOrderRepository successionOrderRepository;
+    private final PlantMemberRepository plantMemberRepository;
+    private final PlantService plantService;
+    private final PlantPermissionService plantPermissionService;
+    private final AuditService auditService;
+
+    public SuccessionService(SuccessionOrderRepository successionOrderRepository,
+                             PlantMemberRepository plantMemberRepository,
+                             PlantService plantService,
+                             PlantPermissionService plantPermissionService,
+                             AuditService auditService) {
+        this.successionOrderRepository = successionOrderRepository;
+        this.plantMemberRepository = plantMemberRepository;
+        this.plantService = plantService;
+        this.plantPermissionService = plantPermissionService;
+        this.auditService = auditService;
+    }
+
+    public List<SuccessionOrder> findActiveSuccession(String plantCode) {
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        plantPermissionService.requirePlantOperatorOrAdmin(plant.getCode());
+
+        return successionOrderRepository.findByPlant_CodeAndActiveTrueOrderByOrderNumberAsc(plant.getCode());
+    }
+
+    public Optional<PlantMember> calculateCurrentResponsible(String plantCode) {
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        List<SuccessionOrder> successionList = successionOrderRepository
+                .findByPlant_CodeAndActiveTrueOrderByOrderNumberAsc(plant.getCode());
+
+        return successionList.stream()
+                .map(SuccessionOrder::getPlantMember)
+                .filter(member -> member != null)
+                .filter(PlantMember::isActive)
+                .filter(member -> member.getUser() != null)
+                .filter(member -> member.getUser().isActive())
+                .filter(PlantMember::isAvailable)
+                .findFirst();
+    }
+
+    @Transactional
+    public SuccessionOrder addToSuccession(String plantCode,
+                                           Long memberId) {
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        plantPermissionService.requirePlantAdmin(plant.getCode());
+
+        PlantMember member = plantMemberRepository
+                .findByIdAndPlant_CodeAndActiveTrue(memberId, plant.getCode())
+                .orElseThrow(() -> new IllegalArgumentException("Miembro de planta no encontrado"));
+
+        if (!member.getUser().isActive()) {
+            throw new IllegalArgumentException("No se puede agregar a sucesiÃ³n un usuario inactivo");
+        }
+
+        Optional<SuccessionOrder> existingAnyStatus = successionOrderRepository
+                .findByPlant_CodeAndPlantMember_Id(plant.getCode(), member.getId());
+
+        if (existingAnyStatus.isPresent()) {
+            SuccessionOrder existing = existingAnyStatus.get();
+
+            if (existing.isActive()) {
+                throw new IllegalArgumentException("El miembro ya estÃ¡ en la sucesiÃ³n de esta planta");
+            }
+
+            Integer maxOrder = successionOrderRepository.findMaxActiveOrderNumberByPlantCode(plant.getCode());
+
+            existing.setOrderNumber(maxOrder + 1);
+            existing.setActive(true);
+
+            SuccessionOrder saved = successionOrderRepository.save(existing);
+
+            auditService.registerForPlant(
+                    plant,
+                    "ADD_TO_SUCCESSION",
+                    "SuccessionOrder",
+                    saved.getId(),
+                    "Se reactivÃ³ en la sucesiÃ³n a " + member.getDisplayName()
+                            + " en la posiciÃ³n " + saved.getOrderNumber(),
+                    "active=false",
+                    "active=true, orderNumber=" + saved.getOrderNumber()
+            );
+
+            return saved;
+        }
+
+        Integer maxOrder = successionOrderRepository.findMaxActiveOrderNumberByPlantCode(plant.getCode());
+
+        SuccessionOrder successionOrder = new SuccessionOrder(
+                plant,
+                member,
+                maxOrder + 1
+        );
+
+        SuccessionOrder saved = successionOrderRepository.save(successionOrder);
+
+        auditService.registerForPlant(
+                plant,
+                "ADD_TO_SUCCESSION",
+                "SuccessionOrder",
+                saved.getId(),
+                "Se agregÃ³ a la sucesiÃ³n a " + member.getDisplayName()
+                        + " en la posiciÃ³n " + saved.getOrderNumber(),
+                null,
+                "memberId=" + member.getId()
+                        + ", orderNumber=" + saved.getOrderNumber()
+                        + ", active=true"
+        );
+
+        return saved;
+    }
+
+    @Transactional
+    public void removeFromSuccession(String plantCode,
+                                     Long memberId) {
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        plantPermissionService.requirePlantAdmin(plant.getCode());
+
+        SuccessionOrder successionOrder = successionOrderRepository
+                .findByPlant_CodeAndPlantMember_IdAndActiveTrue(plant.getCode(), memberId)
+                .orElseThrow(() -> new IllegalArgumentException("El miembro no estÃ¡ en la sucesiÃ³n activa"));
+
+        PlantMember member = successionOrder.getPlantMember();
+
+        Integer oldOrder = successionOrder.getOrderNumber();
+
+        successionOrder.setActive(false);
+
+        successionOrderRepository.save(successionOrder);
+
+        normalizeSuccessionOrder(plant.getCode());
+
+        auditService.registerForPlant(
+                plant,
+                "REMOVE_FROM_SUCCESSION",
+                "SuccessionOrder",
+                successionOrder.getId(),
+                "Se quitÃ³ de la sucesiÃ³n a " + member.getDisplayName(),
+                "active=true, orderNumber=" + oldOrder,
+                "active=false"
+        );
+    }
+
+    @Transactional
+    public void moveUp(String plantCode,
+                       Long memberId) {
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        plantPermissionService.requirePlantOperatorOrAdmin(plant.getCode());
+
+        SuccessionOrder current = successionOrderRepository
+                .findByPlant_CodeAndPlantMember_IdAndActiveTrue(plant.getCode(), memberId)
+                .orElseThrow(() -> new IllegalArgumentException("El miembro no estÃ¡ en la sucesiÃ³n activa"));
+
+        if (current.getOrderNumber() <= 1) {
+            return;
+        }
+
+        SuccessionOrder previous = successionOrderRepository
+                .findByPlant_CodeAndOrderNumberAndActiveTrue(
+                        plant.getCode(),
+                        current.getOrderNumber() - 1
+                )
+                .orElse(null);
+
+        if (previous == null) {
+            normalizeSuccessionOrder(plant.getCode());
+            return;
+        }
+
+        Integer oldOrder = current.getOrderNumber();
+        Integer previousOrder = previous.getOrderNumber();
+
+        current.setOrderNumber(previousOrder);
+        previous.setOrderNumber(oldOrder);
+
+        successionOrderRepository.save(previous);
+        successionOrderRepository.save(current);
+
+        auditService.registerForPlant(
+                plant,
+                "MOVE_UP",
+                "SuccessionOrder",
+                current.getId(),
+                "Se subiÃ³ en la sucesiÃ³n a " + current.getPlantMember().getDisplayName()
+                        + " a la posiciÃ³n " + current.getOrderNumber(),
+                "orderNumber=" + oldOrder,
+                "orderNumber=" + current.getOrderNumber()
+        );
+    }
+
+    @Transactional
+    public void moveDown(String plantCode,
+                         Long memberId) {
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        plantPermissionService.requirePlantOperatorOrAdmin(plant.getCode());
+
+        SuccessionOrder current = successionOrderRepository
+                .findByPlant_CodeAndPlantMember_IdAndActiveTrue(plant.getCode(), memberId)
+                .orElseThrow(() -> new IllegalArgumentException("El miembro no estÃ¡ en la sucesiÃ³n activa"));
+
+        Integer maxOrder = successionOrderRepository.findMaxActiveOrderNumberByPlantCode(plant.getCode());
+
+        if (current.getOrderNumber() >= maxOrder) {
+            return;
+        }
+
+        SuccessionOrder next = successionOrderRepository
+                .findByPlant_CodeAndOrderNumberAndActiveTrue(
+                        plant.getCode(),
+                        current.getOrderNumber() + 1
+                )
+                .orElse(null);
+
+        if (next == null) {
+            normalizeSuccessionOrder(plant.getCode());
+            return;
+        }
+
+        Integer oldOrder = current.getOrderNumber();
+        Integer nextOrder = next.getOrderNumber();
+
+        current.setOrderNumber(nextOrder);
+        next.setOrderNumber(oldOrder);
+
+        successionOrderRepository.save(next);
+        successionOrderRepository.save(current);
+
+        auditService.registerForPlant(
+                plant,
+                "MOVE_DOWN",
+                "SuccessionOrder",
+                current.getId(),
+                "Se bajÃ³ en la sucesiÃ³n a " + current.getPlantMember().getDisplayName()
+                        + " a la posiciÃ³n " + current.getOrderNumber(),
+                "orderNumber=" + oldOrder,
+                "orderNumber=" + current.getOrderNumber()
+        );
+    }
+
+    @Transactional
+    public void normalizeSuccessionOrder(String plantCode) {
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        List<SuccessionOrder> activeList = successionOrderRepository
+                .findByPlant_CodeAndActiveTrueOrderByOrderNumberAsc(plant.getCode());
+
+        int order = 1;
+
+        for (SuccessionOrder item : activeList) {
+            item.setOrderNumber(order);
+            successionOrderRepository.save(item);
+            order++;
+        }
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\service\user\GlobalUserService.java ====================
+
+package com.ezeiza.cartelera.service.user;
+
+import com.ezeiza.cartelera.entity.AppUser;
+import com.ezeiza.cartelera.repository.AppUserRepository;
+import com.ezeiza.cartelera.service.audit.AuditService;
+import com.ezeiza.cartelera.service.plant.PlantPermissionService;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Comparator;
+import java.util.List;
+
+@Service
+public class GlobalUserService {
+
+    private static final String PRIMARY_ADMIN_USERNAME = "admin";
+
+    private final AppUserRepository appUserRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final PlantPermissionService plantPermissionService;
+    private final AuditService auditService;
+
+    public GlobalUserService(AppUserRepository appUserRepository,
+                             PasswordEncoder passwordEncoder,
+                             PlantPermissionService plantPermissionService,
+                             AuditService auditService) {
+        this.appUserRepository = appUserRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.plantPermissionService = plantPermissionService;
+        this.auditService = auditService;
+    }
+
+    public List<AppUser> findAllUsers() {
+        plantPermissionService.requirePlatformAdmin();
+
+        return appUserRepository.findAll()
+                .stream()
+                .sorted(Comparator.comparing(
+                        AppUser::getUsername,
+                        Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)
+                ))
+                .toList();
+    }
+
+    @Transactional
+    public AppUser createUser(String username,
+                              String corporateEmail,
+                              String fullName,
+                              String password,
+                              Boolean platformAdmin) {
+        plantPermissionService.requirePlatformAdmin();
+
+        String cleanUsername = normalizeUsername(username);
+        String cleanEmail = normalizeEmail(corporateEmail);
+        String cleanFullName = cleanRequired(fullName, "El nombre completo es obligatorio");
+
+        if (password == null || password.isBlank()) {
+            throw new IllegalArgumentException("La contraseÃ±a temporal es obligatoria");
+        }
+
+        if (appUserRepository.existsByUsername(cleanUsername)) {
+            throw new IllegalArgumentException("Ya existe un usuario con ese username");
+        }
+
+        if (appUserRepository.existsByCorporateEmail(cleanEmail)) {
+            throw new IllegalArgumentException("Ya existe un usuario con ese email corporativo");
+        }
+
+        boolean isPlatformAdmin = Boolean.TRUE.equals(platformAdmin);
+
+        AppUser user = new AppUser(
+                cleanUsername,
+                cleanEmail,
+                passwordEncoder.encode(password),
+                cleanFullName,
+                isPlatformAdmin
+        );
+
+        user.setActive(true);
+        user.setPlatformAdmin(isPlatformAdmin);
+
+        AppUser savedUser = appUserRepository.save(user);
+
+        auditService.registerGlobal(
+                "CREATE_USER",
+                "AppUser",
+                savedUser.getId(),
+                "Se creÃ³ el usuario global " + savedUser.getUsername(),
+                null,
+                "username=" + savedUser.getUsername()
+                        + ", corporateEmail=" + savedUser.getCorporateEmail()
+                        + ", platformAdmin=" + savedUser.isPlatformAdmin()
+                        + ", active=" + savedUser.isActive()
+        );
+
+        return savedUser;
+    }
+
+    @Transactional
+    public AppUser updateUser(Long userId,
+                              String corporateEmail,
+                              String fullName,
+                              Boolean platformAdmin) {
+        plantPermissionService.requirePlatformAdmin();
+
+        AppUser user = getUserOrThrow(userId);
+
+        String oldValue = "corporateEmail=" + user.getCorporateEmail()
+                + ", fullName=" + user.getFullName()
+                + ", platformAdmin=" + user.isPlatformAdmin();
+
+        if (corporateEmail != null) {
+            String cleanEmail = normalizeEmail(corporateEmail);
+
+            appUserRepository.findByCorporateEmail(cleanEmail)
+                    .filter(existing -> !existing.getId().equals(user.getId()))
+                    .ifPresent(existing -> {
+                        throw new IllegalArgumentException("Ya existe otro usuario con ese email corporativo");
+                    });
+
+            user.setCorporateEmail(cleanEmail);
+        }
+
+        if (fullName != null) {
+            user.setFullName(cleanRequired(fullName, "El nombre completo es obligatorio"));
+        }
+
+        if (platformAdmin != null) {
+            boolean newPlatformAdmin = Boolean.TRUE.equals(platformAdmin);
+
+            if (isPrimaryAdmin(user) && !newPlatformAdmin) {
+                throw new IllegalArgumentException("No se puede quitar platformAdmin al administrador principal");
+            }
+
+            if (user.isPlatformAdmin() && !newPlatformAdmin) {
+                validateNotRemovingLastActivePlatformAdmin(user);
+            }
+
+            user.setPlatformAdmin(newPlatformAdmin);
+        }
+
+        AppUser savedUser = appUserRepository.save(user);
+
+        String newValue = "corporateEmail=" + savedUser.getCorporateEmail()
+                + ", fullName=" + savedUser.getFullName()
+                + ", platformAdmin=" + savedUser.isPlatformAdmin();
+
+        auditService.registerGlobal(
+                "UPDATE_USER",
+                "AppUser",
+                savedUser.getId(),
+                "Se actualizÃ³ el usuario global " + savedUser.getUsername(),
+                oldValue,
+                newValue
+        );
+
+        return savedUser;
+    }
+
+    @Transactional
+    public AppUser updateStatus(Long userId,
+                                boolean active) {
+        plantPermissionService.requirePlatformAdmin();
+
+        AppUser currentUser = plantPermissionService.getCurrentUserOrThrow();
+        AppUser user = getUserOrThrow(userId);
+
+        if (isPrimaryAdmin(user) && !active) {
+            throw new IllegalArgumentException("No se puede desactivar el administrador principal");
+        }
+
+        if (currentUser.getId().equals(user.getId()) && user.isActive() && !active) {
+            throw new IllegalArgumentException("No podÃ©s desactivar tu propio usuario");
+        }
+
+        if (user.isPlatformAdmin() && user.isActive() && !active) {
+            long activeAdmins = appUserRepository.countByPlatformAdminTrueAndActiveTrue();
+
+            if (activeAdmins <= 1) {
+                throw new IllegalArgumentException("No se puede dejar el sistema sin platformAdmin activo");
+            }
+        }
+
+        boolean oldStatus = user.isActive();
+
+        user.setActive(active);
+
+        AppUser savedUser = appUserRepository.save(user);
+
+        auditService.registerGlobal(
+                active ? "ENABLE_USER" : "DISABLE_USER",
+                "AppUser",
+                savedUser.getId(),
+                active
+                        ? "Se activÃ³ el usuario global " + savedUser.getUsername()
+                        : "Se desactivÃ³ el usuario global " + savedUser.getUsername(),
+                "active=" + oldStatus,
+                "active=" + active
+        );
+
+        return savedUser;
+    }
+
+    private AppUser getUserOrThrow(Long userId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("El usuario es obligatorio");
+        }
+
+        return appUserRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+    }
+
+    private void validateNotRemovingLastActivePlatformAdmin(AppUser userBeingUpdated) {
+        long activePlatformAdmins = appUserRepository.countByPlatformAdminTrueAndActiveTrue();
+
+        if (userBeingUpdated.isActive() && activePlatformAdmins <= 1) {
+            throw new IllegalArgumentException("No se puede dejar el sistema sin platformAdmin activo");
+        }
+    }
+
+    private boolean isPrimaryAdmin(AppUser user) {
+        return user != null
+                && user.getUsername() != null
+                && PRIMARY_ADMIN_USERNAME.equalsIgnoreCase(user.getUsername());
+    }
+
+    private String normalizeUsername(String value) {
+        if (value == null || value.trim().isBlank()) {
+            throw new IllegalArgumentException("El username es obligatorio");
+        }
+
+        return value.trim().toLowerCase();
+    }
+
+    private String normalizeEmail(String value) {
+        if (value == null || value.trim().isBlank()) {
+            throw new IllegalArgumentException("El email corporativo es obligatorio");
+        }
+
+        return value.trim().toLowerCase();
+    }
+
+    private String cleanRequired(String value, String errorMessage) {
+        if (value == null || value.trim().isBlank()) {
+            throw new IllegalArgumentException(errorMessage);
+        }
+
+        return value.trim();
+    }
+}
+
+
+==================== src\main\java\com\ezeiza\cartelera\service\user\UserPlantRoleService.java ====================
+
+package com.ezeiza.cartelera.service.user;
+
+import com.ezeiza.cartelera.entity.AppUser;
+import com.ezeiza.cartelera.entity.Plant;
+import com.ezeiza.cartelera.entity.PlantRole;
+import com.ezeiza.cartelera.entity.UserPlantRole;
+import com.ezeiza.cartelera.repository.AppUserRepository;
+import com.ezeiza.cartelera.repository.UserPlantRoleRepository;
+import com.ezeiza.cartelera.service.audit.AuditService;
+import com.ezeiza.cartelera.service.plant.PlantPermissionService;
+import com.ezeiza.cartelera.service.plant.PlantService;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+@Service
+public class UserPlantRoleService {
+
+    private final UserPlantRoleRepository userPlantRoleRepository;
+    private final AppUserRepository appUserRepository;
+    private final PlantService plantService;
+    private final PlantPermissionService plantPermissionService;
+    private final AuditService auditService;
+
+    public UserPlantRoleService(UserPlantRoleRepository userPlantRoleRepository,
+                                AppUserRepository appUserRepository,
+                                PlantService plantService,
+                                PlantPermissionService plantPermissionService,
+                                AuditService auditService) {
+        this.userPlantRoleRepository = userPlantRoleRepository;
+        this.appUserRepository = appUserRepository;
+        this.plantService = plantService;
+        this.plantPermissionService = plantPermissionService;
+        this.auditService = auditService;
+    }
+
+    public List<UserPlantRole> findRolesByPlant(String plantCode) {
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        plantPermissionService.requirePlantAdmin(plant.getCode());
+
+        return userPlantRoleRepository.findByPlantAndActiveTrue(plant);
+    }
+
+    public List<UserPlantRole> findRolesByUser(Long userId) {
+        AppUser user = getUserOrThrow(userId);
+
+        AppUser currentUser = plantPermissionService.getCurrentUserOrThrow();
+
+        if (!currentUser.isPlatformAdmin() && !currentUser.getId().equals(user.getId())) {
+            throw new IllegalArgumentException("No tenÃ©s permiso para consultar roles de este usuario");
+        }
+
+        return userPlantRoleRepository.findByUserAndActiveTrue(user);
+    }
+
+    @Transactional
+    public UserPlantRole assignRole(String plantCode,
+                                    Long userId,
+                                    String roleValue) {
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        plantPermissionService.requirePlantAdmin(plant.getCode());
+
+        AppUser user = getUserOrThrow(userId);
+
+        if (!user.isActive()) {
+            throw new IllegalArgumentException("No se puede asignar rol a un usuario inactivo");
+        }
+
+        if (!plant.isActive()) {
+            throw new IllegalArgumentException("No se puede asignar rol en una planta inactiva");
+        }
+
+        PlantRole newRole = parseRole(roleValue);
+
+        return userPlantRoleRepository.findByUserAndPlant(user, plant)
+                .map(existing -> updateExistingRole(existing, newRole))
+                .orElseGet(() -> {
+                    UserPlantRole createdRole = createNewRole(user, plant, newRole);
+
+                    auditService.registerForPlant(
+                            plant,
+                            "ASSIGN_USER_PLANT_ROLE",
+                            "UserPlantRole",
+                            createdRole.getId(),
+                            "Se asignÃ³ rol " + createdRole.getRole().name()
+                                    + " al usuario " + user.getUsername()
+                                    + " en la planta " + plant.getCode(),
+                            null,
+                            "userId=" + user.getId()
+                                    + ", plantCode=" + plant.getCode()
+                                    + ", role=" + createdRole.getRole().name()
+                                    + ", active=" + createdRole.isActive()
+                    );
+
+                    return createdRole;
+                });
+    }
+
+    @Transactional
+    public void removeRole(String plantCode,
+                           Long userId) {
+        Plant plant = plantService.getActiveByCode(plantCode);
+
+        plantPermissionService.requirePlantAdmin(plant.getCode());
+
+        AppUser user = getUserOrThrow(userId);
+
+        UserPlantRole existingRole = userPlantRoleRepository.findByUserAndPlantAndActiveTrue(user, plant)
+                .orElseThrow(() -> new IllegalArgumentException("El usuario no tiene rol activo en esta planta"));
+
+        if (existingRole.getRole() == PlantRole.ADMIN) {
+            validateNotRemovingLastActivePlantAdmin(plant);
+        }
+
+        existingRole.setActive(false);
+
+        userPlantRoleRepository.save(existingRole);
+
+        auditService.registerForPlant(
+                plant,
+                "REMOVE_USER_PLANT_ROLE",
+                "UserPlantRole",
+                existingRole.getId(),
+                "Se quitÃ³ el rol " + existingRole.getRole().name()
+                        + " al usuario " + user.getUsername()
+                        + " en la planta " + plant.getCode(),
+                "role=" + existingRole.getRole().name() + ", active=true",
+                "role=" + existingRole.getRole().name() + ", active=false"
+        );
+    }
+
+    private UserPlantRole updateExistingRole(UserPlantRole existingRole,
+                                             PlantRole newRole) {
+        Plant plant = existingRole.getPlant();
+
+        PlantRole oldRole = existingRole.getRole();
+        boolean oldActive = existingRole.isActive();
+
+        if (oldRole == PlantRole.ADMIN && newRole != PlantRole.ADMIN && oldActive) {
+            validateNotRemovingLastActivePlantAdmin(plant);
+        }
+
+        existingRole.setRole(newRole);
+        existingRole.setActive(true);
+
+        UserPlantRole savedRole = userPlantRoleRepository.save(existingRole);
+
+        auditService.registerForPlant(
+                plant,
+                oldActive ? "UPDATE_USER_PLANT_ROLE" : "ASSIGN_USER_PLANT_ROLE",
+                "UserPlantRole",
+                savedRole.getId(),
+                "Se actualizÃ³ el rol del usuario "
+                        + savedRole.getUser().getUsername()
+                        + " en la planta " + plant.getCode()
+                        + " de " + oldRole.name()
+                        + " a " + newRole.name(),
+                "role=" + oldRole.name() + ", active=" + oldActive,
+                "role=" + newRole.name() + ", active=true"
+        );
+
+        return savedRole;
+    }
+
+    private UserPlantRole createNewRole(AppUser user,
+                                        Plant plant,
+                                        PlantRole role) {
+        UserPlantRole userPlantRole = new UserPlantRole(user, plant, role);
+
+        return userPlantRoleRepository.save(userPlantRole);
+    }
+
+    private void validateNotRemovingLastActivePlantAdmin(Plant plant) {
+        long activeAdmins = userPlantRoleRepository
+                .countByPlantAndRoleAndActiveTrueAndUser_ActiveTrue(plant, PlantRole.ADMIN);
+
+        if (activeAdmins <= 1) {
+            throw new IllegalArgumentException(
+                    "No se puede dejar la planta " + plant.getCode() + " sin ADMIN activo"
+            );
+        }
+    }
+
+    private AppUser getUserOrThrow(Long userId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("El usuario es obligatorio");
+        }
+
+        return appUserRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+    }
+
+    private PlantRole parseRole(String roleValue) {
+        if (roleValue == null || roleValue.trim().isBlank()) {
+            throw new IllegalArgumentException("El rol es obligatorio");
+        }
+
+        try {
+            return PlantRole.valueOf(roleValue.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Rol de planta invÃ¡lido: " + roleValue);
+        }
+    }
+}
+
+
+==================== src\main\resources\application.properties ====================
+
+spring.application.name=cartelera
+
+server.port=8080
+
+spring.datasource.url=jdbc:sqlite:cartelera.db
+spring.datasource.driver-class-name=org.sqlite.JDBC
+
+spring.jpa.database-platform=org.hibernate.community.dialect.SQLiteDialect
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+
+spring.servlet.multipart.max-file-size=10MB
+spring.servlet.multipart.max-request-size=10MB

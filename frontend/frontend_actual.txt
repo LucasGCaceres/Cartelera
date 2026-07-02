@@ -1,0 +1,3456 @@
+﻿
+
+==================== package.json ====================
+
+
+
+==================== vite.config.js ====================
+
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        secure: false
+      }
+    }
+  }
+})
+
+
+==================== index.html ====================
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>frontend</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+
+
+==================== src\App.css ====================
+
+
+
+==================== src\App.jsx ====================
+
+import { useEffect, useMemo, useState } from "react";
+import LoginPage from "./pages/LoginPage.jsx";
+import AdminPage from "./pages/AdminPage.jsx";
+import HistoryPage from "./pages/HistoryPage.jsx";
+import UsersPage from "./pages/UsersPage.jsx";
+import DisplayPage from "./pages/DisplayPage.jsx";
+import { getCurrentUser, logout } from "./api/carteleraApi.js";
+import "./App.css";
+
+const DEFAULT_PLANT_CODE = "ezeiza";
+
+function getRouteFromPath(path = window.location.pathname) {
+  if (path.startsWith("/display/")) {
+    return "display";
+  }
+
+  if (path.startsWith("/app/")) {
+    return "app";
+  }
+
+  if (path.startsWith("/history")) {
+    return "history";
+  }
+
+  if (path.startsWith("/users")) {
+    return "users";
+  }
+
+  return "admin";
+}
+
+function getPlantCodeFromPath(path = window.location.pathname) {
+  const parts = path.split("/").filter(Boolean);
+
+  if ((parts[0] === "display" || parts[0] === "app") && parts[1]) {
+    return parts[1];
+  }
+
+  return null;
+}
+
+function getDefaultPlantCode(user) {
+  if (!user?.plants || user.plants.length === 0) {
+    return DEFAULT_PLANT_CODE;
+  }
+
+  return user.plants[0].code || DEFAULT_PLANT_CODE;
+}
+
+function buildPathForRoute(route, plantCode) {
+  const safePlantCode = plantCode || DEFAULT_PLANT_CODE;
+
+  const pathByRoute = {
+    admin: "/",
+    history: "/history",
+    users: "/users",
+    display: `/display/${safePlantCode}`,
+    app: `/app/${safePlantCode}`,
+  };
+
+  return pathByRoute[route] || "/";
+}
+
+function App() {
+  const [route, setRoute] = useState(() => getRouteFromPath());
+  const [selectedPlantCode, setSelectedPlantCode] = useState(
+      () => getPlantCodeFromPath() || DEFAULT_PLANT_CODE
+  );
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  const canUseAdminArea = useMemo(() => {
+    if (!currentUser) {
+      return false;
+    }
+
+    return Boolean(currentUser.platformAdmin || currentUser.plants?.length > 0);
+  }, [currentUser]);
+
+  const canViewUsers = useMemo(() => {
+    if (!currentUser) {
+      return false;
+    }
+
+    if (currentUser.platformAdmin) {
+      return true;
+    }
+
+    return currentUser.plants?.some((plant) => plant.role === "ADMIN") || false;
+  }, [currentUser]);
+
+  const canViewHistory = canViewUsers;
+
+  useEffect(() => {
+    async function checkSession() {
+      const initialRoute = getRouteFromPath();
+      const pathPlantCode = getPlantCodeFromPath();
+
+      if (pathPlantCode) {
+        setSelectedPlantCode(pathPlantCode);
+      }
+
+      /*
+       * /display/{plantCode} es pÃºblico.
+       * Intentamos cargar sesiÃ³n para mostrar controles futuros si existe,
+       * pero no bloqueamos el display si /me devuelve 401.
+       */
+      if (initialRoute === "display") {
+        try {
+          const user = await getCurrentUser();
+          setCurrentUser(user);
+        } catch {
+          setCurrentUser(null);
+        } finally {
+          setAuthLoading(false);
+        }
+
+        return;
+      }
+
+      /*
+       * /, /users, /history y /app/{plantCode} requieren sesiÃ³n.
+       */
+      try {
+        const user = await getCurrentUser();
+
+        setCurrentUser(user);
+        setSelectedPlantCode(pathPlantCode || getDefaultPlantCode(user));
+      } catch {
+        setCurrentUser(null);
+        setSelectedPlantCode(pathPlantCode || DEFAULT_PLANT_CODE);
+      } finally {
+        setAuthLoading(false);
+      }
+    }
+
+    checkSession();
+  }, []);
+
+  useEffect(() => {
+    function handlePopState() {
+      const nextRoute = getRouteFromPath();
+      const pathPlantCode = getPlantCodeFromPath();
+
+      setRoute(nextRoute);
+
+      if (pathPlantCode) {
+        setSelectedPlantCode(pathPlantCode);
+      }
+    }
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
+
+  function navigateTo(nextRoute, plantCode = selectedPlantCode) {
+    if (!currentUser && nextRoute !== "display") {
+      return;
+    }
+
+    if (nextRoute === "history" && !canViewHistory) {
+      return;
+    }
+
+    if (nextRoute === "users" && !canViewUsers) {
+      return;
+    }
+
+    const safePlantCode =
+        plantCode || getDefaultPlantCode(currentUser) || DEFAULT_PLANT_CODE;
+
+    const nextPath = buildPathForRoute(nextRoute, safePlantCode);
+
+    setRoute(nextRoute);
+    setSelectedPlantCode(safePlantCode);
+    window.history.pushState({}, "", nextPath);
+  }
+
+  function handlePlantChange(plantCode) {
+    setSelectedPlantCode(plantCode);
+
+    if (route === "display" || route === "app") {
+      const nextPath = buildPathForRoute(route, plantCode);
+      window.history.pushState({}, "", nextPath);
+    }
+  }
+
+  function handleOpenPanel(plantCode) {
+    const safePlantCode =
+        plantCode || selectedPlantCode || getDefaultPlantCode(currentUser);
+
+    setSelectedPlantCode(safePlantCode);
+    setRoute("admin");
+    window.history.pushState({}, "", "/");
+  }
+
+  async function handleLoginSuccess(user) {
+    const pathRoute = getRouteFromPath();
+    const pathPlantCode = getPlantCodeFromPath();
+    const defaultPlantCode = pathPlantCode || getDefaultPlantCode(user);
+
+    setCurrentUser(user);
+    setSelectedPlantCode(defaultPlantCode);
+
+    /*
+     * Si el login ocurriÃ³ desde /app/{plantCode}, mantenemos esa ruta.
+     */
+    if (pathRoute === "app") {
+      setRoute("app");
+      window.history.pushState({}, "", `/app/${defaultPlantCode}`);
+      return;
+    }
+
+    /*
+     * Usuario autenticado sin permisos administrativos.
+     */
+    if (!user.platformAdmin && (!user.plants || user.plants.length === 0)) {
+      setRoute("display");
+      window.history.pushState({}, "", `/display/${defaultPlantCode}`);
+      return;
+    }
+
+    setRoute("admin");
+    window.history.pushState({}, "", "/");
+  }
+
+  async function handleLogout() {
+    try {
+      await logout();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setCurrentUser(null);
+      setRoute("admin");
+      setSelectedPlantCode(DEFAULT_PLANT_CODE);
+      window.history.pushState({}, "", "/");
+    }
+  }
+
+  if (route === "display") {
+    return (
+        <DisplayPage
+            plantCode={selectedPlantCode || getPlantCodeFromPath() || DEFAULT_PLANT_CODE}
+            currentUser={currentUser}
+            onLogout={handleLogout}
+            interactive={false}
+            canOpenPanel={false}
+            onOpenPanel={handleOpenPanel}
+        />
+    );
+  }
+
+  if (authLoading) {
+    return (
+        <div className="app-shell">
+          <div className="card">
+            <h2>Cargando sesiÃ³n...</h2>
+            <p>Verificando si ya hay un usuario autenticado.</p>
+          </div>
+        </div>
+    );
+  }
+
+  if (!currentUser) {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  if (route === "app") {
+    return (
+        <DisplayPage
+            plantCode={selectedPlantCode || getPlantCodeFromPath() || getDefaultPlantCode(currentUser)}
+            currentUser={currentUser}
+            onLogout={handleLogout}
+            interactive
+            canOpenPanel={canUseAdminArea}
+            onOpenPanel={handleOpenPanel}
+        />
+    );
+  }
+
+  if (!canUseAdminArea) {
+    return (
+        <div className="app-shell">
+          <div className="card">
+            <h2>Sin permisos administrativos</h2>
+            <p>
+              Tu usuario estÃ¡ autenticado, pero todavÃ­a no tiene permisos asignados
+              en ninguna planta.
+            </p>
+
+            <div className="action-row">
+              <button
+                  type="button"
+                  onClick={() => navigateTo("display", selectedPlantCode || DEFAULT_PLANT_CODE)}
+              >
+                Abrir cartelera pÃºblica
+              </button>
+
+              <button type="button" onClick={handleLogout}>
+                Salir
+              </button>
+            </div>
+          </div>
+        </div>
+    );
+  }
+
+  if (route === "history") {
+    if (!canViewHistory) {
+      return (
+          <div className="app-shell">
+            <div className="card">
+              <h2>Acceso no permitido</h2>
+              <p>No tenÃ©s permisos para ver el historial.</p>
+
+              <div className="action-row">
+                <button type="button" onClick={() => navigateTo("admin")}>
+                  Volver al panel
+                </button>
+              </div>
+            </div>
+          </div>
+      );
+    }
+
+    return (
+        <HistoryPage
+            activeRoute="history"
+            onNavigate={navigateTo}
+            currentUser={currentUser}
+            onLogout={handleLogout}
+            selectedPlantCode={selectedPlantCode || getDefaultPlantCode(currentUser)}
+            onPlantChange={handlePlantChange}
+        />
+    );
+  }
+
+  if (route === "users") {
+    if (!canViewUsers) {
+      return (
+          <div className="app-shell">
+            <div className="card">
+              <h2>Acceso no permitido</h2>
+              <p>No tenÃ©s permisos para administrar usuarios.</p>
+
+              <div className="action-row">
+                <button type="button" onClick={() => navigateTo("admin")}>
+                  Volver al panel
+                </button>
+              </div>
+            </div>
+          </div>
+      );
+    }
+
+    return (
+        <UsersPage
+            activeRoute="users"
+            onNavigate={navigateTo}
+            currentUser={currentUser}
+            onLogout={handleLogout}
+            selectedPlantCode={selectedPlantCode || getDefaultPlantCode(currentUser)}
+            onPlantChange={handlePlantChange}
+        />
+    );
+  }
+
+  return (
+      <AdminPage
+          activeRoute="admin"
+          onNavigate={navigateTo}
+          currentUser={currentUser}
+          onLogout={handleLogout}
+          selectedPlantCode={selectedPlantCode || getDefaultPlantCode(currentUser)}
+          onPlantChange={handlePlantChange}
+      />
+  );
+}
+
+export default App;
+
+
+==================== src\index.css ====================
+
+html {
+  min-height: 100%;
+}
+
+body {
+  min-height: 100%;
+}
+
+
+==================== src\main.jsx ====================
+
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+
+import "./styles/global.css";
+import "./styles/layout.css";
+import "./styles/forms.css";
+import "./styles/tables.css";
+import "./styles/badges.css";
+
+import App from './App.jsx'
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)
+
+
+==================== src\api\carteleraApi.js ====================
+
+const API_BASE_URL = "/api";
+
+function buildUrl(endpoint) {
+    if (!endpoint.startsWith("/")) {
+        return `${API_BASE_URL}/${endpoint}`;
+    }
+
+    return `${API_BASE_URL}${endpoint}`;
+}
+
+function withTimestamp(endpoint) {
+    const separator = endpoint.includes("?") ? "&" : "?";
+    return `${endpoint}${separator}ts=${Date.now()}`;
+}
+
+function encodePathValue(value) {
+    return encodeURIComponent(String(value));
+}
+
+function extractErrorMessage(response, text) {
+    if (!text) {
+        return `Error HTTP ${response.status}`;
+    }
+
+    try {
+        const parsed = JSON.parse(text);
+
+        if (parsed.message) {
+            return parsed.message;
+        }
+
+        if (parsed.detail) {
+            return parsed.detail;
+        }
+
+        if (parsed.error) {
+            return parsed.error;
+        }
+
+        if (parsed.title) {
+            return parsed.title;
+        }
+    } catch {
+        // El backend actualmente devuelve muchos errores como texto plano.
+    }
+
+    return text;
+}
+
+async function request(endpoint, options = {}) {
+    const hasBody = options.body !== undefined && options.body !== null;
+    const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
+
+    const headers = {
+        ...(hasBody && !isFormData ? { "Content-Type": "application/json" } : {}),
+        ...(options.headers || {}),
+    };
+
+    const response = await fetch(buildUrl(endpoint), {
+        credentials: "include",
+        cache: "no-store",
+        ...options,
+        headers,
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        const error = new Error(extractErrorMessage(response, errorText));
+        error.status = response.status;
+        error.responseText = errorText;
+        throw error;
+    }
+
+    if (response.status === 204) {
+        return null;
+    }
+
+    const text = await response.text();
+
+    if (!text) {
+        return null;
+    }
+
+    return JSON.parse(text);
+}
+
+/**
+ * Auth
+ */
+export function login(username, password) {
+    return request("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ username, password }),
+    });
+}
+
+export function logout() {
+    return request("/auth/logout", {
+        method: "POST",
+    });
+}
+
+export function getCurrentUser() {
+    return request(withTimestamp("/auth/me"));
+}
+
+/**
+ * Plantas
+ */
+export function getPublicPlants() {
+    return request(withTimestamp("/public/plants"));
+}
+
+export function getMyPlants() {
+    return request(withTimestamp("/plants/my"));
+}
+
+export function getPlants() {
+    return request(withTimestamp("/plants"));
+}
+
+export function createPlant(plantData) {
+    return request("/plants", {
+        method: "POST",
+        body: JSON.stringify(plantData),
+    });
+}
+
+export function updatePlant(plantCode, plantData) {
+    return request(`/plants/${encodePathValue(plantCode)}`, {
+        method: "PATCH",
+        body: JSON.stringify(plantData),
+    });
+}
+
+export function updatePlantStatus(plantCode, active) {
+    return request(`/plants/${encodePathValue(plantCode)}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ active }),
+    });
+}
+
+/**
+ * Estado operativo por planta
+ */
+export function getPlantAdminState(plantCode) {
+    return request(withTimestamp(`/plants/${encodePathValue(plantCode)}/admin/state`));
+}
+
+/**
+ * Display por planta
+ */
+export function publishPlantDisplay(plantCode) {
+    return request(`/plants/${encodePathValue(plantCode)}/display/publish`, {
+        method: "POST",
+    });
+}
+
+export function getPlantPublishedDisplay(plantCode) {
+    return request(withTimestamp(`/plants/${encodePathValue(plantCode)}/display/published`));
+}
+
+export function getPublicPlantPublishedDisplay(plantCode) {
+    return request(
+        withTimestamp(`/public/plants/${encodePathValue(plantCode)}/display/published`)
+    );
+}
+
+/**
+ * Usuarios globales
+ */
+export function getGlobalUsers() {
+    return request(withTimestamp("/users/global"));
+}
+
+export function createGlobalUser(userData) {
+    return request("/users/global", {
+        method: "POST",
+        body: JSON.stringify(userData),
+    });
+}
+
+export function updateGlobalUser(userId, userData) {
+    return request(`/users/global/${encodePathValue(userId)}`, {
+        method: "PATCH",
+        body: JSON.stringify(userData),
+    });
+}
+
+export function updateGlobalUserStatus(userId, active) {
+    return request(`/users/global/${encodePathValue(userId)}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ active }),
+    });
+}
+
+/**
+ * Usuarios / roles por planta
+ */
+export function getPlantUsers(plantCode) {
+    return request(withTimestamp(`/plants/${encodePathValue(plantCode)}/users`));
+}
+
+export function assignPlantUserRole(plantCode, userId, role) {
+    return request(
+        `/plants/${encodePathValue(plantCode)}/users/${encodePathValue(userId)}/role`,
+        {
+            method: "PUT",
+            body: JSON.stringify({ role }),
+        }
+    );
+}
+
+export function removePlantUserRole(plantCode, userId) {
+    return request(
+        `/plants/${encodePathValue(plantCode)}/users/${encodePathValue(userId)}/role`,
+        {
+            method: "DELETE",
+        }
+    );
+}
+
+/**
+ * Miembros de planta
+ */
+export function getPlantMembers(plantCode) {
+    return request(withTimestamp(`/plants/${encodePathValue(plantCode)}/members`));
+}
+
+export function addPlantMember(plantCode, userId, position = "") {
+    return request(`/plants/${encodePathValue(plantCode)}/members`, {
+        method: "POST",
+        body: JSON.stringify({ userId, position }),
+    });
+}
+
+export function addPlantMemberByUserId(plantCode, userId, position = "") {
+    return request(
+        `/plants/${encodePathValue(plantCode)}/members/${encodePathValue(userId)}`,
+        {
+            method: "POST",
+            body: JSON.stringify({ userId, position }),
+        }
+    );
+}
+
+export function updatePlantMember(plantCode, memberId, data) {
+    return request(
+        `/plants/${encodePathValue(plantCode)}/members/${encodePathValue(memberId)}`,
+        {
+            method: "PATCH",
+            body: JSON.stringify(data),
+        }
+    );
+}
+
+export function removePlantMember(plantCode, memberId) {
+    return request(
+        `/plants/${encodePathValue(plantCode)}/members/${encodePathValue(memberId)}`,
+        {
+            method: "DELETE",
+        }
+    );
+}
+
+export function updatePlantMemberAvailability(plantCode, memberId, available) {
+    return request(
+        `/plants/${encodePathValue(plantCode)}/members/${encodePathValue(
+            memberId
+        )}/availability`,
+        {
+            method: "PATCH",
+            body: JSON.stringify({ available }),
+        }
+    );
+}
+
+/**
+ * SucesiÃ³n
+ */
+export function getPlantSuccession(plantCode) {
+    return request(withTimestamp(`/plants/${encodePathValue(plantCode)}/succession`));
+}
+
+export function addMemberToSuccession(plantCode, memberId) {
+    return request(
+        `/plants/${encodePathValue(plantCode)}/succession/${encodePathValue(memberId)}`,
+        {
+            method: "POST",
+        }
+    );
+}
+
+export function removeMemberFromSuccession(plantCode, memberId) {
+    return request(
+        `/plants/${encodePathValue(plantCode)}/succession/${encodePathValue(memberId)}`,
+        {
+            method: "DELETE",
+        }
+    );
+}
+
+export function moveSuccessionMemberUp(plantCode, memberId) {
+    return request(
+        `/plants/${encodePathValue(plantCode)}/succession/${encodePathValue(
+            memberId
+        )}/move-up`,
+        {
+            method: "POST",
+        }
+    );
+}
+
+export function moveSuccessionMemberDown(plantCode, memberId) {
+    return request(
+        `/plants/${encodePathValue(plantCode)}/succession/${encodePathValue(
+            memberId
+        )}/move-down`,
+        {
+            method: "POST",
+        }
+    );
+}
+
+/**
+ * AuditorÃ­a
+ */
+export function getPlantAuditLogs(plantCode) {
+    return request(withTimestamp(`/plants/${encodePathValue(plantCode)}/audit-logs`));
+}
+
+export function getGlobalAuditLogs() {
+    return request(withTimestamp("/audit-logs/global"));
+}
+
+/**
+ * Compatibilidad temporal para que compilen pÃ¡ginas viejas.
+ * Estas funciones se van a eliminar cuando termine la migraciÃ³n completa.
+ */
+export function getAdminState() {
+    throw new Error("Endpoint legacy eliminado. Usar getPlantAdminState(plantCode).");
+}
+
+export function createPerson() {
+    throw new Error("FunciÃ³n legacy eliminada. Usar addPlantMember.");
+}
+
+export function updateAvailability() {
+    throw new Error(
+        "FunciÃ³n legacy eliminada. Usar updatePlantMemberAvailability(plantCode, memberId, available)."
+    );
+}
+
+export function movePersonUp() {
+    throw new Error("FunciÃ³n legacy eliminada. Usar moveSuccessionMemberUp.");
+}
+
+export function movePersonDown() {
+    throw new Error("FunciÃ³n legacy eliminada. Usar moveSuccessionMemberDown.");
+}
+
+export function deletePerson() {
+    throw new Error(
+        "FunciÃ³n legacy eliminada. Usar removePlantMember o removeMemberFromSuccession."
+    );
+}
+
+export function publishDisplay() {
+    throw new Error("Endpoint legacy eliminado. Usar publishPlantDisplay(plantCode).");
+}
+
+export function getPublishedDisplay() {
+    throw new Error(
+        "Endpoint legacy eliminado. Usar getPublicPlantPublishedDisplay(plantCode)."
+    );
+}
+
+export function getAuditLogs() {
+    throw new Error("Endpoint legacy eliminado. Usar getPlantAuditLogs o getGlobalAuditLogs.");
+}
+
+export function getUsers() {
+    throw new Error("Endpoint legacy eliminado. Usar getGlobalUsers o getPlantUsers.");
+}
+
+export function createUser() {
+    throw new Error("Endpoint legacy eliminado. Usar createGlobalUser.");
+}
+
+export function updateUserRole() {
+    throw new Error(
+        "Endpoint legacy eliminado. Usar assignPlantUserRole o removePlantUserRole."
+    );
+}
+
+export function updateUserStatus() {
+    throw new Error("Endpoint legacy eliminado. Usar updateGlobalUserStatus.");
+}
+
+export function resetUserPassword() {
+    throw new Error("Reset de contraseÃ±a eliminado. Futuro: Entra ID.");
+}
+
+export function registerUser() {
+    throw new Error(
+        "Registro pÃºblico eliminado. Futuro: alta desde usuarios globales o Entra ID."
+    );
+}
+
+
+==================== src\components\Topbar.jsx ====================
+
+function Topbar({
+                    subtitle,
+                    activeRoute,
+                    onNavigate,
+                    currentUser,
+                    onLogout,
+                    selectedPlantCode,
+                    onPlantChange,
+                }) {
+    const plants = currentUser?.plants || [];
+    const isPlatformAdmin = Boolean(currentUser?.platformAdmin);
+    const currentPlant = plants.find((plant) => plant.code === selectedPlantCode);
+    const currentRole = currentPlant?.role || (isPlatformAdmin ? "ADMIN" : "Sin permisos");
+
+    const canViewUsers =
+        isPlatformAdmin || plants.some((plant) => plant.role === "ADMIN");
+
+    const canViewHistory = canViewUsers;
+
+    function openDisplay() {
+        const plantCode = selectedPlantCode || plants[0]?.code || "ezeiza";
+        window.open(`/display/${plantCode}`, "_blank", "noopener,noreferrer");
+    }
+
+    function handlePlantChange(event) {
+        onPlantChange?.(event.target.value);
+    }
+
+    return (
+        <header className="topbar">
+            <div>
+                <h1>Cartelera responsable de planta</h1>
+                {subtitle && <p>{subtitle}</p>}
+            </div>
+
+            <nav className="topbar-nav">
+                {plants.length > 0 && (
+                    <label className="topbar-plant-selector">
+                        Planta{" "}
+                        <select value={selectedPlantCode || plants[0]?.code || ""} onChange={handlePlantChange}>
+                            {plants.map((plant) => (
+                                <option key={plant.code} value={plant.code}>
+                                    {plant.displayName || plant.name || plant.code}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                )}
+
+                <button
+                    type="button"
+                    className={activeRoute === "admin" ? "active" : ""}
+                    onClick={() => onNavigate("admin")}
+                >
+                    Panel
+                </button>
+
+                {canViewHistory && (
+                    <button
+                        type="button"
+                        className={activeRoute === "history" ? "active" : ""}
+                        onClick={() => onNavigate("history")}
+                    >
+                        Historial
+                    </button>
+                )}
+
+                {canViewUsers && (
+                    <button
+                        type="button"
+                        className={activeRoute === "users" ? "active" : ""}
+                        onClick={() => onNavigate("users")}
+                    >
+                        Usuarios
+                    </button>
+                )}
+
+                <button type="button" onClick={openDisplay}>
+                    Abrir cartelera
+                </button>
+            </nav>
+
+            <div className="topbar-user">
+                <span>{currentUser?.fullName}</span>
+                <span className="badge badge-info">
+          {isPlatformAdmin ? "PLATFORM ADMIN" : currentRole}
+        </span>
+                <button type="button" onClick={onLogout}>
+                    Salir
+                </button>
+            </div>
+        </header>
+    );
+}
+
+export default Topbar;
+
+
+==================== src\pages\AdminPage.jsx ====================
+
+import { useEffect, useMemo, useState } from "react";
+import Topbar from "../components/Topbar.jsx";
+import {
+    addMemberToSuccession,
+    addPlantMember,
+    getPlantAdminState,
+    getPlantMembers,
+    getPlantUsers,
+    moveSuccessionMemberDown,
+    moveSuccessionMemberUp,
+    publishPlantDisplay,
+    removeMemberFromSuccession,
+    removePlantMember,
+    updatePlantMemberAvailability,
+} from "../api/carteleraApi.js";
+
+function AdminPage({
+                       activeRoute,
+                       onNavigate,
+                       currentUser,
+                       onLogout,
+                       selectedPlantCode,
+                       onPlantChange,
+                   }) {
+    const [adminState, setAdminState] = useState({
+        plant: null,
+        currentUserRole: null,
+        currentResponsible: null,
+        successionList: [],
+        publishedDisplay: null,
+    });
+
+    const [plantUsers, setPlantUsers] = useState([]);
+    const [members, setMembers] = useState([]);
+
+    const [memberForm, setMemberForm] = useState({
+        userId: "",
+        position: "",
+    });
+
+    const [loading, setLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState(false);
+    const [error, setError] = useState("");
+
+    const plantCode =
+        selectedPlantCode || currentUser?.plants?.[0]?.code || "ezeiza";
+
+    const currentUserRole = adminState.currentUserRole;
+    const isPlatformAdmin = Boolean(currentUser?.platformAdmin);
+    const isPlantAdmin = isPlatformAdmin || currentUserRole === "ADMIN";
+    const isPlantOperator = currentUserRole === "OPERADOR";
+
+    const canAdminPlant = isPlantAdmin;
+    const canOperatePlant = isPlantAdmin || isPlantOperator;
+
+    const successionList = adminState.successionList || [];
+    const currentResponsible = adminState.currentResponsible;
+    const publishedDisplay = adminState.publishedDisplay;
+
+    const successionMemberIds = useMemo(() => {
+        return new Set(
+            successionList
+                .map((item) => item.member?.id)
+                .filter((id) => id !== null && id !== undefined)
+        );
+    }, [successionList]);
+
+    const membersOutsideSuccession = useMemo(() => {
+        return members.filter((member) => !successionMemberIds.has(member.id));
+    }, [members, successionMemberIds]);
+
+    const availableUsersToAdd = useMemo(() => {
+        const activeMemberUserIds = new Set(
+            members
+                .filter((member) => member.active)
+                .map((member) => member.userId)
+        );
+
+        return plantUsers
+            .filter((user) => user.active)
+            .filter((user) => !activeMemberUserIds.has(user.userId));
+    }, [plantUsers, members]);
+
+    const previewUserId = currentResponsible?.userId ?? null;
+    const publishedUserId = publishedDisplay?.userId ?? null;
+
+    const hasInitialPublication = Boolean(publishedDisplay);
+    const hasPendingChanges =
+        hasInitialPublication && previewUserId !== publishedUserId;
+
+    const canPublish =
+        canOperatePlant && (!hasInitialPublication || hasPendingChanges);
+
+    async function loadAllData() {
+        if (!plantCode) {
+            return;
+        }
+
+        try {
+            setError("");
+
+            const [stateData, usersData, membersData] = await Promise.all([
+                getPlantAdminState(plantCode),
+                getPlantUsers(plantCode),
+                getPlantMembers(plantCode),
+            ]);
+
+            setAdminState(
+                stateData || {
+                    plant: null,
+                    currentUserRole: null,
+                    currentResponsible: null,
+                    successionList: [],
+                    publishedDisplay: null,
+                }
+            );
+
+            setPlantUsers(usersData || []);
+            setMembers(membersData || []);
+        } catch (err) {
+            setError(err.message || "No se pudo cargar el estado del panel.");
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function reloadStateOnly() {
+        try {
+            const [stateData, membersData] = await Promise.all([
+                getPlantAdminState(plantCode),
+                getPlantMembers(plantCode),
+            ]);
+
+            setAdminState(
+                stateData || {
+                    plant: null,
+                    currentUserRole: null,
+                    currentResponsible: null,
+                    successionList: [],
+                    publishedDisplay: null,
+                }
+            );
+
+            setMembers(membersData || []);
+        } catch (err) {
+            setError(err.message || "No se pudo actualizar el panel.");
+            console.error(err);
+        }
+    }
+
+    useEffect(() => {
+        setLoading(true);
+        setMemberForm({
+            userId: "",
+            position: "",
+        });
+
+        loadAllData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [plantCode]);
+
+    function handleMemberFormChange(event) {
+        const { name, value } = event.target;
+
+        setMemberForm((current) => ({
+            ...current,
+            [name]: value,
+        }));
+    }
+
+    async function handleAddMember(event) {
+        event.preventDefault();
+
+        if (!memberForm.userId) {
+            setError("SeleccionÃ¡ un usuario para agregar como responsable operativo.");
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await addPlantMember(
+                plantCode,
+                Number(memberForm.userId),
+                memberForm.position.trim()
+            );
+
+            setMemberForm({
+                userId: "",
+                position: "",
+            });
+
+            await loadAllData();
+        } catch (err) {
+            setError(err.message || "No se pudo agregar el miembro de planta.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleAddToSuccession(memberId) {
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await addMemberToSuccession(plantCode, memberId);
+            await reloadStateOnly();
+        } catch (err) {
+            setError(err.message || "No se pudo agregar a la sucesiÃ³n.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleAvailabilityChange(memberId, available) {
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await updatePlantMemberAvailability(plantCode, memberId, available);
+            await reloadStateOnly();
+        } catch (err) {
+            setError(err.message || "No se pudo actualizar la disponibilidad.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleMoveUp(memberId) {
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await moveSuccessionMemberUp(plantCode, memberId);
+            await reloadStateOnly();
+        } catch (err) {
+            setError(err.message || "No se pudo subir en la lista.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleMoveDown(memberId) {
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await moveSuccessionMemberDown(plantCode, memberId);
+            await reloadStateOnly();
+        } catch (err) {
+            setError(err.message || "No se pudo bajar en la lista.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleRemoveFromSuccession(member) {
+        const confirmed = window.confirm(
+            `Â¿Seguro que querÃ©s quitar a ${member.fullName} de la sucesiÃ³n?`
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await removeMemberFromSuccession(plantCode, member.id);
+            await reloadStateOnly();
+        } catch (err) {
+            setError(err.message || "No se pudo quitar de la sucesiÃ³n.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleRemoveMember(member) {
+        const confirmed = window.confirm(
+            `Â¿Seguro que querÃ©s quitar a ${member.fullName} como miembro operativo de esta planta?`
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await removePlantMember(plantCode, member.id);
+            await loadAllData();
+        } catch (err) {
+            setError(err.message || "No se pudo quitar el miembro de planta.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handlePublishDisplay() {
+        const confirmed = window.confirm(
+            "Â¿ConfirmÃ¡s que querÃ©s sincronizar la cartelera con el responsable resultante actual?"
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await publishPlantDisplay(plantCode);
+            await reloadStateOnly();
+        } catch (err) {
+            setError(err.message || "No se pudo sincronizar la cartelera.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    if (loading) {
+        return (
+            <div className="app-shell">
+                <div className="card">Cargando panel...</div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="app-shell">
+            <Topbar
+                subtitle={adminState.plant?.displayName || "Panel operativo"}
+                activeRoute={activeRoute}
+                onNavigate={onNavigate}
+                currentUser={currentUser}
+                onLogout={onLogout}
+                selectedPlantCode={plantCode}
+                onPlantChange={onPlantChange}
+            />
+
+            {error && <div className="alert alert-error">{error}</div>}
+
+            {!canOperatePlant && (
+                <div className="alert alert-warning">
+                    No tenÃ©s permisos operativos en esta planta.
+                </div>
+            )}
+
+            {!hasInitialPublication && (
+                <div className="alert alert-warning">
+                    <strong>Cartelera sin publicaciÃ³n inicial.</strong>{" "}
+                    TodavÃ­a no se sincronizÃ³ la cartelera de esta planta.
+                </div>
+            )}
+
+            {hasPendingChanges && (
+                <div className="alert alert-warning">
+                    <strong>Hay cambios pendientes sin publicar.</strong>{" "}
+                    La vista previa actual no coincide con la cartelera publicada.
+                </div>
+            )}
+
+            <section className="grid two-columns">
+                <div className="card">
+                    <p className="eyebrow">Vista previa</p>
+                    <h3>Responsable resultante</h3>
+
+                    {currentResponsible ? (
+                        <>
+                            <p className="responsible-name">{currentResponsible.fullName}</p>
+                            <p>{currentResponsible.position || "Sin cargo informado"}</p>
+                        </>
+                    ) : (
+                        <>
+                            <p className="responsible-name">No hay responsable disponible</p>
+                            <p>MarcÃ¡ al menos un miembro de la sucesiÃ³n como disponible.</p>
+                        </>
+                    )}
+                </div>
+
+                <div className="card">
+                    <p className="eyebrow">Cartelera publicada</p>
+                    <h3>Estado publicado</h3>
+
+                    {publishedDisplay ? (
+                        publishedDisplay.responsibleName ? (
+                            <>
+                                <p className="responsible-name">
+                                    {publishedDisplay.responsibleName}
+                                </p>
+                                <p>
+                                    {publishedDisplay.responsiblePosition ||
+                                        "Sin cargo informado"}
+                                </p>
+                            </>
+                        ) : (
+                            <>
+                                <p className="responsible-name">Sin responsable publicado</p>
+                                <p>La Ãºltima publicaciÃ³n no tenÃ­a responsable disponible.</p>
+                            </>
+                        )
+                    ) : (
+                        <>
+                            <p className="responsible-name">Sin publicaciÃ³n inicial</p>
+                            <p>PresionÃ¡ sincronizar para publicar por primera vez.</p>
+                        </>
+                    )}
+
+                    <button
+                        type="button"
+                        onClick={handlePublishDisplay}
+                        disabled={actionLoading || !canPublish}
+                    >
+                        {actionLoading
+                            ? "Sincronizando..."
+                            : !hasInitialPublication
+                                ? "Publicar cartelera"
+                                : hasPendingChanges
+                                    ? "Sincronizar cartelera"
+                                    : "Cartelera actualizada"}
+                    </button>
+                </div>
+            </section>
+
+            {canAdminPlant && (
+                <section className="card">
+                    <p className="eyebrow">Responsables operativos</p>
+                    <h3>Agregar miembro de planta</h3>
+
+                    <form onSubmit={handleAddMember} className="form-grid">
+                        <label>
+                            Usuario
+                            <select
+                                name="userId"
+                                value={memberForm.userId}
+                                onChange={handleMemberFormChange}
+                                disabled={actionLoading}
+                            >
+                                <option value="">Seleccionar usuario...</option>
+                                {availableUsersToAdd.map((user) => (
+                                    <option key={user.userId} value={user.userId}>
+                                        {user.fullName} â€” {user.corporateEmail || user.username}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+
+                        <label>
+                            Cargo en esta planta
+                            <input
+                                name="position"
+                                value={memberForm.position}
+                                onChange={handleMemberFormChange}
+                                placeholder="Ej: Responsable operativo"
+                                disabled={actionLoading}
+                            />
+                        </label>
+
+                        <button
+                            type="submit"
+                            disabled={actionLoading || !memberForm.userId}
+                        >
+                            {actionLoading ? "Guardando..." : "Agregar miembro"}
+                        </button>
+                    </form>
+
+                    {availableUsersToAdd.length === 0 && (
+                        <p className="muted">
+                            No hay usuarios activos disponibles para agregar. CreÃ¡ usuarios
+                            desde la pantalla Usuarios.
+                        </p>
+                    )}
+                </section>
+            )}
+
+            <section className="card">
+                <p className="eyebrow">SucesiÃ³n</p>
+                <h3>Lista de sucesiÃ³n y disponibilidad</h3>
+
+                {successionList.length === 0 ? (
+                    <p>TodavÃ­a no hay miembros en la sucesiÃ³n de esta planta.</p>
+                ) : (
+                    <div className="table-wrapper">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>Orden</th>
+                                <th>Nombre</th>
+                                <th>Email</th>
+                                <th>Cargo</th>
+                                <th>Disponible</th>
+                                <th>Responsable</th>
+                                <th>Acciones</th>
+                            </tr>
+                            </thead>
+
+                            <tbody>
+                            {successionList.map((item) => {
+                                const member = item.member;
+
+                                if (!member) {
+                                    return null;
+                                }
+
+                                return (
+                                    <tr key={item.id}>
+                                        <td>{item.orderNumber}</td>
+                                        <td>{member.fullName}</td>
+                                        <td>{member.corporateEmail || "-"}</td>
+                                        <td>{member.position || "-"}</td>
+                                        <td>
+                                            <label className="inline-check">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={Boolean(member.available)}
+                                                    onChange={(event) =>
+                                                        handleAvailabilityChange(
+                                                            member.id,
+                                                            event.target.checked
+                                                        )
+                                                    }
+                                                    disabled={actionLoading || !canOperatePlant}
+                                                />
+                                                {member.available ? "SÃ­" : "No"}
+                                            </label>
+                                        </td>
+                                        <td>
+                                            {item.currentResponsible ? (
+                                                <span className="badge badge-success">SÃ­</span>
+                                            ) : (
+                                                <span className="badge">No</span>
+                                            )}
+                                        </td>
+                                        <td>
+                                            <div className="action-row">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleMoveUp(member.id)}
+                                                    disabled={
+                                                        actionLoading ||
+                                                        item.orderNumber === 1 ||
+                                                        !canOperatePlant
+                                                    }
+                                                >
+                                                    Subir
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleMoveDown(member.id)}
+                                                    disabled={
+                                                        actionLoading ||
+                                                        item.orderNumber === successionList.length ||
+                                                        !canOperatePlant
+                                                    }
+                                                >
+                                                    Bajar
+                                                </button>
+
+                                                {canAdminPlant && (
+                                                    <button
+                                                        type="button"
+                                                        className="danger"
+                                                        onClick={() =>
+                                                            handleRemoveFromSuccession(member)
+                                                        }
+                                                        disabled={actionLoading}
+                                                    >
+                                                        Quitar
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </section>
+
+            {canAdminPlant && (
+                <section className="card">
+                    <p className="eyebrow">Miembros fuera de sucesiÃ³n</p>
+                    <h3>Agregar a la sucesiÃ³n</h3>
+
+                    {membersOutsideSuccession.length === 0 ? (
+                        <p>No hay miembros activos fuera de la sucesiÃ³n.</p>
+                    ) : (
+                        <div className="table-wrapper">
+                            <table>
+                                <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Email</th>
+                                    <th>Cargo</th>
+                                    <th>Disponible</th>
+                                    <th>Acciones</th>
+                                </tr>
+                                </thead>
+
+                                <tbody>
+                                {membersOutsideSuccession.map((member) => (
+                                    <tr key={member.id}>
+                                        <td>{member.fullName}</td>
+                                        <td>{member.corporateEmail || "-"}</td>
+                                        <td>{member.position || "-"}</td>
+                                        <td>{member.available ? "SÃ­" : "No"}</td>
+                                        <td>
+                                            <div className="action-row">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleAddToSuccession(member.id)}
+                                                    disabled={actionLoading}
+                                                >
+                                                    Agregar a sucesiÃ³n
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    className="danger"
+                                                    onClick={() => handleRemoveMember(member)}
+                                                    disabled={actionLoading}
+                                                >
+                                                    Quitar miembro
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </section>
+            )}
+        </div>
+    );
+}
+
+export default AdminPage;
+
+
+==================== src\pages\DisplayPage.jsx ====================
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { getPublicPlantPublishedDisplay } from "../api/carteleraApi.js";
+import "../styles/display.css";
+
+const DISPLAY_BACKGROUNDS = [
+    "/assets/display/Fondo1.jpg",
+    "/assets/display/Fondo3.jpg",
+    "/assets/display/Fondo4.jpg",
+];
+
+const DISPLAY_LOGO = "/assets/display/Logo_Gate.png";
+
+function getPlantCodeFromPath() {
+    const path = window.location.pathname;
+    const parts = path.split("/").filter(Boolean);
+
+    if ((parts[0] === "display" || parts[0] === "app") && parts[1]) {
+        return parts[1];
+    }
+
+    return null;
+}
+
+function DisplayPage({
+                         plantCode,
+                         currentUser,
+                         onLogout,
+                         interactive = false,
+                         canOpenPanel = false,
+                         onOpenPanel,
+                     }) {
+    const resolvedPlantCode = plantCode || getPlantCodeFromPath() || "ezeiza";
+
+    const [publishedDisplay, setPublishedDisplay] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [connectionError, setConnectionError] = useState(false);
+    const [now, setNow] = useState(new Date());
+    const [backgroundIndex, setBackgroundIndex] = useState(0);
+    const [showControls, setShowControls] = useState(false);
+
+    const controlsTimeoutRef = useRef(null);
+
+    async function loadPublishedDisplay() {
+        try {
+            const data = await getPublicPlantPublishedDisplay(resolvedPlantCode);
+
+            setPublishedDisplay(data);
+            setConnectionError(false);
+        } catch (err) {
+            console.error(err);
+            setConnectionError(true);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    function showTemporaryControls() {
+        if (!interactive || !currentUser) {
+            return;
+        }
+
+        setShowControls(true);
+
+        if (controlsTimeoutRef.current) {
+            window.clearTimeout(controlsTimeoutRef.current);
+        }
+
+        controlsTimeoutRef.current = window.setTimeout(() => {
+            setShowControls(false);
+        }, 5000);
+    }
+
+    useEffect(() => {
+        DISPLAY_BACKGROUNDS.forEach((src) => {
+            const image = new Image();
+            image.src = src;
+        });
+    }, []);
+
+    useEffect(() => {
+        setLoading(true);
+        loadPublishedDisplay();
+
+        const displayIntervalId = window.setInterval(() => {
+            loadPublishedDisplay();
+        }, 5000);
+
+        return () => window.clearInterval(displayIntervalId);
+    }, [resolvedPlantCode]);
+
+    useEffect(() => {
+        const clockIntervalId = window.setInterval(() => {
+            setNow(new Date());
+        }, 1000);
+
+        return () => window.clearInterval(clockIntervalId);
+    }, []);
+
+    useEffect(() => {
+        const backgroundIntervalId = window.setInterval(() => {
+            setBackgroundIndex((current) => {
+                if (DISPLAY_BACKGROUNDS.length <= 1) {
+                    return 0;
+                }
+
+                return (current + 1) % DISPLAY_BACKGROUNDS.length;
+            });
+        }, 30000);
+
+        return () => window.clearInterval(backgroundIntervalId);
+    }, []);
+
+    useEffect(() => {
+        window.addEventListener("mousemove", showTemporaryControls);
+        window.addEventListener("mousedown", showTemporaryControls);
+        window.addEventListener("touchstart", showTemporaryControls);
+        window.addEventListener("keydown", showTemporaryControls);
+
+        return () => {
+            window.removeEventListener("mousemove", showTemporaryControls);
+            window.removeEventListener("mousedown", showTemporaryControls);
+            window.removeEventListener("touchstart", showTemporaryControls);
+            window.removeEventListener("keydown", showTemporaryControls);
+
+            if (controlsTimeoutRef.current) {
+                window.clearTimeout(controlsTimeoutRef.current);
+            }
+        };
+    }, [interactive, currentUser]);
+
+    const dateParts = useMemo(() => {
+        const month = now
+            .toLocaleDateString("es-AR", { month: "short" })
+            .replace(".", "");
+
+        return {
+            month: month.charAt(0).toUpperCase() + month.slice(1),
+            day: now.toLocaleDateString("es-AR", { day: "2-digit" }),
+            year: now.toLocaleDateString("es-AR", { year: "numeric" }),
+            time: now.toLocaleTimeString("es-AR", {
+                hour: "2-digit",
+                minute: "2-digit",
+            }),
+        };
+    }, [now]);
+
+    const backgroundImage = DISPLAY_BACKGROUNDS[backgroundIndex];
+
+    const responsibleName = publishedDisplay?.responsibleName;
+    const responsiblePosition =
+        publishedDisplay?.responsiblePosition ||
+        publishedDisplay?.mainTitle ||
+        "Responsable de planta";
+
+    const plantName =
+        publishedDisplay?.plantName ||
+        resolvedPlantCode.replaceAll("-", " ").toUpperCase();
+
+    return (
+        <main
+            className="display-page"
+            style={{ backgroundImage: `url(${backgroundImage})` }}
+            onMouseMove={showTemporaryControls}
+            onMouseDown={showTemporaryControls}
+            onTouchStart={showTemporaryControls}
+        >
+            {DISPLAY_LOGO}
+
+            {interactive && currentUser && showControls && (
+                <div className="display-controls">
+                    {canOpenPanel && (
+                        <button type="button" onClick={() => onOpenPanel?.(resolvedPlantCode)}>
+                            Panel
+                        </button>
+                    )}
+
+                    <button type="button" onClick={onLogout}>
+                        Salir
+                    </button>
+                </div>
+            )}
+
+            <section className="display-date">
+                <span>{dateParts.month}</span>
+                <strong>{dateParts.day}</strong>
+                <span>{dateParts.year}</span>
+            </section>
+
+            <section className="display-card">
+                <p className="display-plant">{plantName}</p>
+
+                {connectionError && (
+                    <p className="display-warning">Reconectando con el servidor...</p>
+                )}
+
+                {loading ? (
+                    <>
+                        <h2>Cargando...</h2>
+                        <p>Obteniendo cartelera publicada</p>
+                    </>
+                ) : responsibleName ? (
+                    <>
+                        <h2>{responsibleName}</h2>
+                        <p>{responsiblePosition}</p>
+                    </>
+                ) : (
+                    <>
+                        <h2>No hay responsable disponible</h2>
+                        <p>{publishedDisplay?.mainTitle || "Responsable de planta"}</p>
+                    </>
+                )}
+            </section>
+
+            <section className="display-clock">{dateParts.time}</section>
+        </main>
+    );
+}
+
+export default DisplayPage;
+
+
+==================== src\pages\HistoryPage.jsx ====================
+
+import { useEffect, useMemo, useState } from "react";
+import Topbar from "../components/Topbar.jsx";
+import {
+    getGlobalAuditLogs,
+    getPlantAuditLogs,
+} from "../api/carteleraApi.js";
+import { formatDateTime } from "../utils/formatDateTime.js";
+import { translateAction } from "../utils/translateAction.js";
+
+function HistoryPage({
+                         activeRoute,
+                         onNavigate,
+                         currentUser,
+                         onLogout,
+                         selectedPlantCode,
+                         onPlantChange,
+                     }) {
+    const plantCode =
+        selectedPlantCode || currentUser?.plants?.[0]?.code || "ezeiza";
+
+    const [auditLogs, setAuditLogs] = useState([]);
+    const [scope, setScope] = useState("plant");
+    const [loading, setLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState(false);
+    const [error, setError] = useState("");
+
+    const isPlatformAdmin = Boolean(currentUser?.platformAdmin);
+
+    const currentPlantRole = useMemo(() => {
+        if (isPlatformAdmin) {
+            return "ADMIN";
+        }
+
+        return (
+            currentUser?.plants?.find((plant) => plant.code === plantCode)?.role ||
+            "Sin permisos"
+        );
+    }, [currentUser, isPlatformAdmin, plantCode]);
+
+    const canViewPlantHistory =
+        isPlatformAdmin || currentPlantRole === "ADMIN";
+
+    const canViewGlobalHistory = isPlatformAdmin;
+
+    async function loadAuditLogs() {
+        try {
+            setError("");
+            setLoading(true);
+            setActionLoading(true);
+
+            if (scope === "global") {
+                if (!canViewGlobalHistory) {
+                    setAuditLogs([]);
+                    setError("No tenÃ©s permiso para ver el historial global.");
+                    return;
+                }
+
+                const data = await getGlobalAuditLogs();
+                setAuditLogs(data || []);
+                return;
+            }
+
+            if (!canViewPlantHistory) {
+                setAuditLogs([]);
+                setError("No tenÃ©s permiso para ver el historial de esta planta.");
+                return;
+            }
+
+            const data = await getPlantAuditLogs(plantCode);
+            setAuditLogs(data || []);
+        } catch (err) {
+            setError(err.message || "No se pudo cargar el historial.");
+            console.error(err);
+        } finally {
+            setLoading(false);
+            setActionLoading(false);
+        }
+    }
+
+    useEffect(() => {
+        loadAuditLogs();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [plantCode, scope]);
+
+    function handleScopeChange(event) {
+        setScope(event.target.value);
+    }
+
+    return (
+        <div className="app-shell">
+            <Topbar
+                subtitle={`Historial â€” ${scope === "global" ? "Global" : plantCode}`}
+                activeRoute={activeRoute}
+                onNavigate={onNavigate}
+                currentUser={currentUser}
+                onLogout={onLogout}
+                selectedPlantCode={plantCode}
+                onPlantChange={onPlantChange}
+            />
+
+            {error && <div className="alert alert-error">{error}</div>}
+
+            {!canViewPlantHistory && scope === "plant" && (
+                <div className="alert alert-warning">
+                    No tenÃ©s permisos para ver el historial de esta planta.
+                </div>
+            )}
+
+            {!canViewGlobalHistory && scope === "global" && (
+                <div className="alert alert-warning">
+                    No tenÃ©s permisos para ver el historial global.
+                </div>
+            )}
+
+            <section className="card">
+                <p className="eyebrow">AuditorÃ­a</p>
+                <h3>Historial de movimientos</h3>
+
+                <div className="action-row">
+                    <label>
+                        Alcance{" "}
+                        <select value={scope} onChange={handleScopeChange}>
+                            <option value="plant">Planta seleccionada</option>
+                            {isPlatformAdmin && <option value="global">Global</option>}
+                        </select>
+                    </label>
+
+                    <button
+                        type="button"
+                        onClick={loadAuditLogs}
+                        disabled={actionLoading}
+                    >
+                        {actionLoading ? "Actualizando..." : "Actualizar"}
+                    </button>
+                </div>
+
+                {loading ? (
+                    <p>Cargando historial...</p>
+                ) : auditLogs.length === 0 ? (
+                    <p>TodavÃ­a no hay movimientos registrados.</p>
+                ) : (
+                    <div className="table-wrapper">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>Fecha y hora</th>
+                                <th>Planta</th>
+                                <th>Usuario</th>
+                                <th>AcciÃ³n</th>
+                                <th>Entidad</th>
+                                <th>Detalle</th>
+                                <th>Antes</th>
+                                <th>DespuÃ©s</th>
+                            </tr>
+                            </thead>
+
+                            <tbody>
+                            {auditLogs.map((log) => (
+                                <tr key={log.id}>
+                                    <td>{formatDateTime(log.createdAt)}</td>
+                                    <td>{log.plantCode || "-"}</td>
+                                    <td>{log.username || "-"}</td>
+                                    <td>
+                      <span className="badge badge-info">
+                        {translateAction(log.action)}
+                      </span>
+                                    </td>
+                                    <td>{log.entityName || "-"}</td>
+                                    <td>{log.description || "-"}</td>
+                                    <td>{log.oldValue || "-"}</td>
+                                    <td>{log.newValue || "-"}</td>
+                                </tr>
+                            ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </section>
+        </div>
+    );
+}
+
+export default HistoryPage;
+
+
+==================== src\pages\LoginPage.jsx ====================
+
+import { useState } from "react";
+import { login } from "../api/carteleraApi.js";
+
+function LoginPage({ onLoginSuccess }) {
+    const [formData, setFormData] = useState({
+        username: "",
+        password: "",
+    });
+
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+
+    function handleChange(event) {
+        const { name, value } = event.target;
+
+        setFormData((current) => ({
+            ...current,
+            [name]: value,
+        }));
+    }
+
+    async function handleLoginSubmit(event) {
+        event.preventDefault();
+
+        if (!formData.username.trim() || !formData.password.trim()) {
+            setError("Usuario y contraseÃ±a son obligatorios.");
+            return;
+        }
+
+        try {
+            setLoading(true);
+            setError("");
+
+            const user = await login(formData.username.trim(), formData.password);
+            onLoginSuccess(user);
+        } catch (err) {
+            if (err.status === 423) {
+                setError("El usuario estÃ¡ deshabilitado. ContactÃ¡ a un administrador.");
+            } else if (err.status === 401) {
+                setError("Usuario o contraseÃ±a incorrectos.");
+            } else {
+                setError("No se pudo iniciar sesiÃ³n. VerificÃ¡ que el backend estÃ© levantado.");
+            }
+
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    return (
+        <main className="login-page">
+            <section className="login-card">
+                <h1>Cartelera Responsable de Planta</h1>
+
+                <h2>Iniciar sesiÃ³n</h2>
+
+                <p>IngresÃ¡ con tu usuario para administrar la cartelera.</p>
+
+                {error && <div className="alert alert-error">{error}</div>}
+
+                <form onSubmit={handleLoginSubmit} className="form-grid">
+                    <label>
+                        Usuario
+                        <input
+                            name="username"
+                            value={formData.username}
+                            onChange={handleChange}
+                            autoComplete="username"
+                            autoFocus
+                        />
+                    </label>
+
+                    <label>
+                        ContraseÃ±a
+                        <input
+                            name="password"
+                            type="password"
+                            value={formData.password}
+                            onChange={handleChange}
+                            autoComplete="current-password"
+                        />
+                    </label>
+
+                    <button type="submit" disabled={loading}>
+                        {loading ? "Ingresando..." : "Ingresar"}
+                    </button>
+                </form>
+            </section>
+        </main>
+    );
+}
+
+export default LoginPage;
+
+
+==================== src\pages\UsersPage.jsx ====================
+
+import { useEffect, useMemo, useState } from "react";
+import Topbar from "../components/Topbar.jsx";
+import {
+    assignPlantUserRole,
+    createGlobalUser,
+    getGlobalUsers,
+    getPlantUsers,
+    removePlantUserRole,
+    updateGlobalUserStatus,
+} from "../api/carteleraApi.js";
+
+function UsersPage({
+                       activeRoute,
+                       onNavigate,
+                       currentUser,
+                       onLogout,
+                       selectedPlantCode,
+                       onPlantChange,
+                   }) {
+    const plantCode =
+        selectedPlantCode || currentUser?.plants?.[0]?.code || "ezeiza";
+
+    const [globalUsers, setGlobalUsers] = useState([]);
+    const [plantUsers, setPlantUsers] = useState([]);
+
+    const [formData, setFormData] = useState({
+        username: "",
+        corporateEmail: "",
+        fullName: "",
+        password: "",
+        platformAdmin: false,
+    });
+
+    const [loading, setLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState(false);
+    const [error, setError] = useState("");
+
+    const isPlatformAdmin = Boolean(currentUser?.platformAdmin);
+
+    const currentPlantRole = useMemo(() => {
+        if (isPlatformAdmin) {
+            return "ADMIN";
+        }
+
+        return (
+            currentUser?.plants?.find((plant) => plant.code === plantCode)?.role ||
+            "Sin permisos"
+        );
+    }, [currentUser, isPlatformAdmin, plantCode]);
+
+    const canManagePlantUsers = isPlatformAdmin || currentPlantRole === "ADMIN";
+
+    const sortedPlantUsers = useMemo(() => {
+        return [...plantUsers].sort((a, b) =>
+            (a.fullName || a.username || "").localeCompare(
+                b.fullName || b.username || "",
+                "es",
+                { sensitivity: "base" }
+            )
+        );
+    }, [plantUsers]);
+
+    async function loadUsers() {
+        try {
+            setError("");
+
+            const plantData = await getPlantUsers(plantCode);
+            setPlantUsers(plantData || []);
+
+            if (isPlatformAdmin) {
+                const globalData = await getGlobalUsers();
+                setGlobalUsers(globalData || []);
+            } else {
+                setGlobalUsers([]);
+            }
+        } catch (err) {
+            setError(err.message || "No se pudieron cargar los usuarios.");
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function reloadPlantUsers() {
+        try {
+            const plantData = await getPlantUsers(plantCode);
+            setPlantUsers(plantData || []);
+        } catch (err) {
+            setError(
+                err.message || "No se pudieron actualizar los usuarios de la planta."
+            );
+            console.error(err);
+        }
+    }
+
+    useEffect(() => {
+        setLoading(true);
+        loadUsers();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [plantCode, isPlatformAdmin]);
+
+    function handleInputChange(event) {
+        const { name, value, type, checked } = event.target;
+
+        setFormData((current) => ({
+            ...current,
+            [name]: type === "checkbox" ? checked : value,
+    }));
+    }
+
+    async function handleCreateUser(event) {
+        event.preventDefault();
+
+        if (
+            !formData.username.trim() ||
+            !formData.corporateEmail.trim() ||
+            !formData.fullName.trim() ||
+            !formData.password.trim()
+        ) {
+            setError(
+                "Username, email corporativo, nombre completo y contraseÃ±a temporal son obligatorios."
+            );
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await createGlobalUser({
+                username: formData.username.trim(),
+                corporateEmail: formData.corporateEmail.trim(),
+                fullName: formData.fullName.trim(),
+                password: formData.password,
+                platformAdmin: formData.platformAdmin,
+            });
+
+            setFormData({
+                username: "",
+                corporateEmail: "",
+                fullName: "",
+                password: "",
+                platformAdmin: false,
+            });
+
+            await loadUsers();
+        } catch (err) {
+            setError(
+                err.message || "No se pudo crear el usuario. VerificÃ¡ que no exista."
+            );
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleAssignRole(userId, role) {
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await assignPlantUserRole(plantCode, userId, role);
+            await reloadPlantUsers();
+        } catch (err) {
+            setError(err.message || "No se pudo asignar el rol en la planta.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleRemoveRole(user) {
+        const roleInPlant = user.roleInPlant || "Sin permisos";
+
+        if (roleInPlant === "Sin permisos") {
+            return;
+        }
+
+        const confirmed = window.confirm(
+            `Â¿Seguro que querÃ©s quitar los permisos de ${
+                user.fullName || user.username
+            } en esta planta?`
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await removePlantUserRole(plantCode, user.userId);
+            await reloadPlantUsers();
+        } catch (err) {
+            setError(err.message || "No se pudo quitar el rol en la planta.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleToggleGlobalStatus(user) {
+        if (!isPlatformAdmin) {
+            return;
+        }
+
+        if (user.username === currentUser.username) {
+            setError("No podÃ©s desactivar tu propio usuario.");
+            return;
+        }
+
+        if (user.username === "admin") {
+            setError("No se puede desactivar el administrador principal.");
+            return;
+        }
+
+        const confirmed = window.confirm(
+            user.active
+                ? `Â¿Seguro que querÃ©s desactivar globalmente a ${user.username}?`
+                : `Â¿Seguro que querÃ©s activar globalmente a ${user.username}?`
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await updateGlobalUserStatus(user.userId, !user.active);
+            await loadUsers();
+        } catch (err) {
+            setError(
+                err.message || "No se pudo cambiar el estado global del usuario."
+            );
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    return (
+        <div className="app-shell">
+            <Topbar
+                subtitle={`Usuarios y permisos â€” ${plantCode}`}
+                activeRoute={activeRoute}
+                onNavigate={onNavigate}
+                currentUser={currentUser}
+                onLogout={onLogout}
+                selectedPlantCode={plantCode}
+                onPlantChange={onPlantChange}
+            />
+
+            {error && <div className="alert alert-error">{error}</div>}
+
+            {!canManagePlantUsers && (
+                <div className="alert alert-warning">
+                    No tenÃ©s permisos para administrar usuarios en esta planta.
+                </div>
+            )}
+
+            {isPlatformAdmin && (
+                <section className="card">
+                    <p className="eyebrow">Usuarios globales</p>
+                    <h3>Crear usuario</h3>
+
+                    <form onSubmit={handleCreateUser} className="form-grid">
+                        <label>
+                            Username
+                            <input
+                                name="username"
+                                value={formData.username}
+                                onChange={handleInputChange}
+                                placeholder="ej: jperez o jperez@empresa.com"
+                                disabled={actionLoading}
+                            />
+                        </label>
+
+                        <label>
+                            Email corporativo
+                            <input
+                                name="corporateEmail"
+                                value={formData.corporateEmail}
+                                onChange={handleInputChange}
+                                placeholder="usuario@empresa.com"
+                                disabled={actionLoading}
+                            />
+                        </label>
+
+                        <label>
+                            Nombre completo
+                            <input
+                                name="fullName"
+                                value={formData.fullName}
+                                onChange={handleInputChange}
+                                placeholder="Nombre Apellido"
+                                disabled={actionLoading}
+                            />
+                        </label>
+
+                        <label>
+                            ContraseÃ±a temporal
+                            <input
+                                name="password"
+                                type="password"
+                                value={formData.password}
+                                onChange={handleInputChange}
+                                disabled={actionLoading}
+                            />
+                        </label>
+
+                        <label className="inline-check">
+                            <input
+                                name="platformAdmin"
+                                type="checkbox"
+                                checked={formData.platformAdmin}
+                                onChange={handleInputChange}
+                                disabled={actionLoading}
+                            />
+                            Platform admin
+                        </label>
+
+                        <button type="submit" disabled={actionLoading}>
+                            {actionLoading ? "Guardando..." : "Crear usuario"}
+                        </button>
+                    </form>
+
+                    <p className="muted">
+                        La contraseÃ±a es temporal mientras exista login manual. A futuro,
+                        con Entra ID, la contraseÃ±a la administra Microsoft.
+                    </p>
+                </section>
+            )}
+
+            <section className="card">
+                <p className="eyebrow">Permisos por planta</p>
+                <h3>Usuarios en planta seleccionada</h3>
+
+                <button type="button" onClick={loadUsers} disabled={actionLoading}>
+                    Actualizar
+                </button>
+
+                {loading ? (
+                    <p>Cargando usuarios...</p>
+                ) : sortedPlantUsers.length === 0 ? (
+                    <p>No hay usuarios registrados.</p>
+                ) : (
+                    <div className="table-wrapper">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>Usuario</th>
+                                <th>Email</th>
+                                <th>Nombre completo</th>
+                                <th>Estado global</th>
+                                <th>Platform admin</th>
+                                <th>Rol en esta planta</th>
+                                <th>Acciones</th>
+                            </tr>
+                            </thead>
+
+                            <tbody>
+                            {sortedPlantUsers.map((user) => {
+                                const roleInPlant = user.roleInPlant || "Sin permisos";
+                                const isCurrentUser = user.username === currentUser.username;
+                                const isPrimaryAdmin = user.username === "admin";
+                                const isGlobalAdmin = Boolean(user.platformAdmin);
+
+                                return (
+                                    <tr key={user.userId}>
+                                        <td>{user.username}</td>
+                                        <td>{user.corporateEmail || "-"}</td>
+                                        <td>{user.fullName}</td>
+                                        <td>
+                                            {user.active ? (
+                                                <span className="badge badge-success">Activo</span>
+                                            ) : (
+                                                <span className="badge badge-danger">Inactivo</span>
+                                            )}
+                                        </td>
+                                        <td>
+                                            {isGlobalAdmin ? (
+                                                <span className="badge badge-info">SÃ­</span>
+                                            ) : (
+                                                <span className="badge">No</span>
+                                            )}
+                                        </td>
+                                        <td>
+                        <span
+                            className={
+                                roleInPlant === "ADMIN"
+                                    ? "badge badge-info"
+                                    : roleInPlant === "OPERADOR"
+                                        ? "badge badge-success"
+                                        : "badge"
+                            }
+                        >
+                          {roleInPlant}
+                        </span>
+                                        </td>
+                                        <td>
+                                            <div className="action-row">
+                                                {canManagePlantUsers && (
+                                                    <>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                handleAssignRole(user.userId, "ADMIN")
+                                                            }
+                                                            disabled={
+                                                                actionLoading ||
+                                                                !user.active ||
+                                                                roleInPlant === "ADMIN"
+                                                            }
+                                                        >
+                                                            ADMIN
+                                                        </button>
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                handleAssignRole(user.userId, "OPERADOR")
+                                                            }
+                                                            disabled={
+                                                                actionLoading ||
+                                                                !user.active ||
+                                                                roleInPlant === "OPERADOR"
+                                                            }
+                                                        >
+                                                            OPERADOR
+                                                        </button>
+
+                                                        <button
+                                                            type="button"
+                                                            className="danger"
+                                                            onClick={() => handleRemoveRole(user)}
+                                                            disabled={
+                                                                actionLoading ||
+                                                                roleInPlant === "Sin permisos" ||
+                                                                isGlobalAdmin
+                                                            }
+                                                        >
+                                                            Quitar permisos
+                                                        </button>
+                                                    </>
+                                                )}
+
+                                                {isPlatformAdmin && (
+                                                    <button
+                                                        type="button"
+                                                        className={user.active ? "danger" : ""}
+                                                        onClick={() => handleToggleGlobalStatus(user)}
+                                                        disabled={
+                                                            actionLoading || isCurrentUser || isPrimaryAdmin
+                                                        }
+                                                    >
+                                                        {user.active ? "Desactivar" : "Activar"}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </section>
+
+            {isPlatformAdmin && (
+                <section className="card">
+                    <p className="eyebrow">Usuarios globales</p>
+                    <h3>Listado global</h3>
+
+                    {globalUsers.length === 0 ? (
+                        <p>No hay usuarios globales.</p>
+                    ) : (
+                        <div className="table-wrapper">
+                            <table>
+                                <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Email</th>
+                                    <th>Nombre</th>
+                                    <th>Estado</th>
+                                    <th>Platform admin</th>
+                                    <th>Creado</th>
+                                </tr>
+                                </thead>
+
+                                <tbody>
+                                {globalUsers.map((user) => (
+                                    <tr key={user.id}>
+                                        <td>{user.username}</td>
+                                        <td>{user.corporateEmail}</td>
+                                        <td>{user.fullName}</td>
+                                        <td>
+                                            {user.active ? (
+                                                <span className="badge badge-success">Activo</span>
+                                            ) : (
+                                                <span className="badge badge-danger">Inactivo</span>
+                                            )}
+                                        </td>
+                                        <td>
+                                            {user.platformAdmin ? (
+                                                <span className="badge badge-info">SÃ­</span>
+                                            ) : (
+                                                <span className="badge">No</span>
+                                            )}
+                                        </td>
+                                        <td>{user.createdAt || "-"}</td>
+                                    </tr>
+                                ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </section>
+            )}
+        </div>
+    );
+}
+
+export default UsersPage;
+
+
+==================== src\styles\badges.css ====================
+
+.error-box {
+    background: #fde2e2;
+    color: #9f1c1c;
+    border: 1px solid #f5b5b5;
+    padding: 14px 16px;
+    border-radius: 12px;
+    margin-bottom: 18px;
+    font-weight: 700;
+}
+
+.pending-box {
+    display: grid;
+    gap: 4px;
+    background: #e0f2fe;
+    color: #075985;
+    border: 1px solid #7dd3fc;
+    padding: 14px 16px;
+    border-radius: 12px;
+    margin-bottom: 18px;
+}
+
+.pending-box strong {
+    font-size: 15px;
+}
+
+.pending-box span {
+    font-size: 14px;
+}
+
+.warning-pending {
+    background: #fef3c7;
+    color: #92400e;
+    border-color: #fcd34d;
+}
+
+.empty-message {
+    color: #64748b;
+    font-weight: 700;
+}
+
+.responsible-badge {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: #dcfce7;
+    color: #166534;
+    font-weight: 800;
+    font-size: 13px;
+}
+
+.not-responsible-badge {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #64748b;
+    font-weight: 700;
+    font-size: 13px;
+}
+
+.action-badge {
+    display: inline-block;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: #e0f2fe;
+    color: #075985;
+    font-weight: 800;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+
+==================== src\styles\display.css ====================
+
+.display-page {
+    min-height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    color: #172033;
+    background-color: #1f2933;
+    background-position: center center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: clamp(90px, 12vh, 150px) clamp(18px, 4vw, 64px)
+    clamp(52px, 8vh, 90px);
+}
+
+.display-page::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+            radial-gradient(
+                    circle at 72% 12%,
+                    rgba(255, 255, 255, 0.16),
+                    transparent 30%
+            ),
+            linear-gradient(180deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.22));
+    pointer-events: none;
+}
+
+.display-logo {
+    position: fixed;
+    top: clamp(18px, 3vw, 42px);
+    left: clamp(18px, 3.8vw, 64px);
+    z-index: 2;
+    width: clamp(150px, 18vw, 310px);
+    max-height: clamp(54px, 8vw, 110px);
+    object-fit: contain;
+    filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.24));
+}
+
+.display-layout {
+    width: 100%;
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: center;
+}
+
+.display-panel {
+    width: min(980px, 92vw);
+    display: grid;
+    grid-template-columns: clamp(86px, 10vw, 132px) 1fr;
+    border-radius: clamp(12px, 2vw, 24px);
+    overflow: hidden;
+    background: rgba(238, 244, 248, 0.92);
+    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(5px);
+}
+
+.display-date-card {
+    background: rgba(64, 93, 120, 0.94);
+    color: white;
+    display: grid;
+    grid-template-rows: auto auto auto;
+    align-items: center;
+    justify-items: center;
+    gap: clamp(12px, 1.4vw, 22px);
+    padding: clamp(18px, 2vw, 28px) clamp(10px, 1.2vw, 16px);
+}
+
+.display-date-card span {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    min-height: clamp(32px, 4vw, 50px);
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.18);
+    font-weight: 800;
+    font-size: clamp(16px, 1.8vw, 25px);
+    line-height: 1;
+}
+
+.display-date-card strong {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    min-height: clamp(44px, 5vw, 66px);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.24);
+    font-size: clamp(28px, 3.2vw, 48px);
+    line-height: 1;
+}
+
+.display-responsible-card {
+    padding: clamp(22px, 3vw, 42px) clamp(28px, 4vw, 62px);
+    display: grid;
+    align-content: center;
+    gap: clamp(12px, 1.4vw, 20px);
+}
+
+.display-plant-name {
+    color: #4f6374;
+    font-size: clamp(13px, 1.4vw, 20px);
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.display-responsible-card h1 {
+    margin: 0;
+    width: fit-content;
+    max-width: 100%;
+    border-radius: 6px;
+    background: linear-gradient(90deg, #159447, #37b45e);
+    color: white;
+    padding: clamp(10px, 1.2vw, 18px) clamp(28px, 3.2vw, 52px);
+    font-size: clamp(34px, 5.2vw, 76px);
+    line-height: 1.04;
+    font-weight: 900;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    box-shadow: 0 8px 20px rgba(21, 148, 71, 0.28);
+}
+
+.display-responsible-card p {
+    margin: 0;
+    color: #52677a;
+    font-size: clamp(21px, 2.5vw, 38px);
+    font-weight: 500;
+}
+
+.display-connection-warning {
+    width: fit-content;
+    border-radius: 999px;
+    background: #fff3cd;
+    color: #805c00;
+    padding: 8px 14px;
+    font-size: clamp(13px, 1.4vw, 18px);
+    font-weight: 800;
+}
+
+.display-clock {
+    position: fixed;
+    right: clamp(18px, 3.8vw, 64px);
+    bottom: clamp(18px, 3.8vw, 64px);
+    z-index: 2;
+    color: white;
+    font-size: clamp(28px, 4.8vw, 72px);
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    text-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+
+.display-session-controls {
+    position: fixed;
+    top: clamp(16px, 2vw, 28px);
+    right: clamp(16px, 2vw, 28px);
+    z-index: 4;
+    display: flex;
+    gap: 10px;
+}
+
+.display-hidden-logout-button {
+    background: rgba(15, 23, 42, 0.66);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.38);
+    border-radius: 999px;
+    padding: 9px 14px;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+}
+
+.display-hidden-logout-button:hover:not(:disabled) {
+    background: rgba(15, 23, 42, 0.84);
+}
+
+@media (max-width: 900px) {
+    .display-page {
+        align-items: flex-start;
+        padding: clamp(105px, 14vh, 140px) 18px 80px;
+    }
+
+    .display-logo {
+        left: 50%;
+        transform: translateX(-50%);
+        width: clamp(150px, 36vw, 250px);
+    }
+
+    .display-panel {
+        grid-template-columns: 1fr;
+        width: min(650px, 94vw);
+    }
+
+    .display-date-card {
+        grid-template-columns: repeat(3, 1fr);
+        grid-template-rows: none;
+        gap: 8px;
+        padding: 10px;
+    }
+
+    .display-date-card span,
+    .display-date-card strong {
+        min-height: 42px;
+    }
+
+    .display-responsible-card {
+        text-align: center;
+        justify-items: center;
+        padding: 22px;
+    }
+
+    .display-responsible-card h1 {
+        width: 100%;
+    }
+
+    .display-clock {
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+        text-align: center;
+    }
+}
+
+@media (max-width: 520px) {
+    .display-page {
+        padding-top: 96px;
+    }
+
+    .display-responsible-card {
+        padding: 18px;
+    }
+
+    .display-responsible-card h1 {
+        font-size: clamp(30px, 10vw, 48px);
+    }
+}
+.display-controls {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    z-index: 10;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.display-controls button {
+    border: 0;
+    border-radius: 999px;
+    padding: 10px 18px;
+    font-weight: 700;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.92);
+    color: #14213d;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+}
+
+.display-controls button:hover {
+    background: #ffffff;
+}
+
+
+==================== src\styles\forms.css ====================
+
+.person-form {
+    display: grid;
+    gap: 14px;
+    margin-top: 18px;
+}
+
+.person-form label {
+    display: grid;
+    gap: 6px;
+    font-weight: 700;
+    color: #334155;
+}
+
+.person-form input {
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 11px 12px;
+    outline: none;
+}
+
+.person-form input:focus {
+    border-color: #1f77b4;
+    box-shadow: 0 0 0 3px rgba(31, 119, 180, 0.14);
+}
+
+.login-page {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    background: #f4f6f8;
+    padding: 24px;
+}
+
+.login-card {
+    width: min(460px, 100%);
+    background: white;
+    border-radius: 20px;
+    padding: 32px;
+    box-shadow: 0 14px 36px rgba(15, 23, 42, 0.12);
+}
+
+.login-card h1 {
+    margin: 0 0 8px;
+}
+
+.login-card p {
+    margin: 0 0 22px;
+    color: #64748b;
+}
+
+.login-help {
+    margin-top: 18px;
+    padding: 14px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    display: grid;
+    gap: 4px;
+    color: #475569;
+    font-size: 14px;
+}
+
+.link-button {
+    background: transparent;
+    color: #1f77b4;
+    border: none;
+    padding: 0;
+    text-align: left;
+    font-weight: 800;
+}
+
+.link-button:hover:not(:disabled) {
+    background: transparent;
+    color: #155d8b;
+    text-decoration: underline;
+    filter: none;
+}
+
+.role-help {
+    display: grid;
+    gap: 12px;
+    color: #475569;
+}
+
+.role-help p {
+    margin: 0;
+    line-height: 1.5;
+}
+
+
+==================== src\styles\global.css ====================
+
+:root {
+    font-family: Arial, Helvetica, sans-serif;
+    color: #172033;
+    background: #f4f6f8;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+}
+
+button,
+input,
+select {
+    font: inherit;
+}
+
+button {
+    border: none;
+    border-radius: 10px;
+    background: #1f77b4;
+    color: white;
+    padding: 10px 14px;
+    cursor: pointer;
+    transition: 0.15s ease;
+}
+
+button:hover:not(:disabled) {
+    filter: brightness(0.95);
+}
+
+button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+select {
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: 9px 10px;
+    background: white;
+    color: #172033;
+}
+
+
+==================== src\styles\layout.css ====================
+
+.page {
+    min-height: 100vh;
+    padding: 28px;
+    background: #f4f6f8;
+}
+
+.topbar {
+    background: #102a43;
+    color: white;
+    padding: 22px 28px;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 24px;
+    box-shadow: 0 12px 28px rgba(16, 42, 67, 0.18);
+}
+
+.topbar h1 {
+    margin: 0;
+    font-size: 28px;
+}
+
+.topbar p {
+    margin: 6px 0 0;
+    opacity: 0.8;
+}
+
+.topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.nav-button {
+    background: transparent;
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 999px;
+    padding: 10px 14px;
+}
+
+.nav-button:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.12);
+    filter: none;
+}
+
+.nav-button.active {
+    background: rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.65);
+}
+
+.display-nav-button {
+    border-color: rgba(255, 255, 255, 0.45);
+}
+
+.logout-button {
+    border-color: rgba(255, 255, 255, 0.55);
+}
+
+.user-pill {
+    display: grid;
+    gap: 2px;
+    color: white;
+    font-size: 12px;
+    text-align: right;
+    padding: 0 6px;
+}
+
+.user-pill span {
+    opacity: 0.9;
+}
+
+.user-pill strong {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: minmax(260px, 1fr) minmax(320px, 1fr);
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+.single-card-grid {
+    grid-template-columns: 1fr;
+}
+
+.card {
+    background: white;
+    border-radius: 18px;
+    padding: 24px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.responsible-card {
+    border-left: 7px solid #1f77b4;
+}
+
+.card h2 {
+    margin: 0 0 8px;
+}
+
+.card p {
+    margin: 0;
+    color: #475569;
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+}
+
+.eyebrow {
+    display: block;
+    color: #64748b;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.preview-name {
+    font-size: 26px;
+    font-weight: 800;
+    color: #172033 !important;
+    margin: 12px 0 6px !important;
+}
+
+.publish-box {
+    margin-top: 22px;
+    padding: 16px;
+    border-radius: 14px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    display: grid;
+    gap: 4px;
+}
+
+.publish-box strong {
+    color: #172033;
+}
+
+.publish-box span {
+    color: #475569;
+}
+
+.publish-button {
+    margin-top: 18px;
+    width: 100%;
+    background: #146c43;
+}
+
+.publish-button:hover:not(:disabled) {
+    background: #0f5132;
+    filter: none;
+}
+
+.ghost-button {
+    background: #eef2f7;
+    color: #334155;
+}
+
+.ghost-button:hover:not(:disabled) {
+    background: #e2e8f0;
+    filter: none;
+}
+
+@media (max-width: 860px) {
+    .grid {
+        grid-template-columns: 1fr;
+    }
+
+    .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .page {
+        padding: 16px;
+    }
+}
+
+
+==================== src\styles\tables.css ====================
+
+.table-wrapper {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 820px;
+}
+
+th,
+td {
+    text-align: left;
+    padding: 14px 12px;
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: middle;
+}
+
+th {
+    color: #475569;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: #f8fafc;
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.availability-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+}
+
+.availability-toggle input {
+    width: 18px;
+    height: 18px;
+}
+
+.danger-button {
+    background: #dc2626;
+}
+
+.danger-button:hover:not(:disabled) {
+    background: #b91c1c;
+    filter: none;
+}
+
+
+==================== src\utils\formatDateTime.js ====================
+
+export function formatDateTime(value) {
+    if (!value) {
+        return "-";
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    return date.toLocaleString("es-AR");
+}
+
+
+==================== src\utils\translateAction.js ====================
+
+export function translateAction(action) {
+    const translations = {
+        CREATE_PLANT: "Alta de planta",
+        UPDATE_PLANT: "ActualizaciÃ³n de planta",
+        ENABLE_PLANT: "ActivaciÃ³n de planta",
+        DISABLE_PLANT: "DesactivaciÃ³n de planta",
+
+        CREATE_USER: "Alta de usuario",
+        UPDATE_USER: "ActualizaciÃ³n de usuario",
+        ENABLE_USER: "ActivaciÃ³n de usuario",
+        DISABLE_USER: "DesactivaciÃ³n de usuario",
+
+        ASSIGN_USER_PLANT_ROLE: "AsignaciÃ³n de permiso",
+        UPDATE_USER_PLANT_ROLE: "Cambio de permiso",
+        REMOVE_USER_PLANT_ROLE: "Quita de permiso",
+
+        ADD_PLANT_MEMBER: "Alta de miembro de planta",
+        UPDATE_PLANT_MEMBER: "ActualizaciÃ³n de miembro",
+        REMOVE_PLANT_MEMBER: "Baja de miembro de planta",
+
+        CHANGE_AVAILABILITY: "Cambio de disponibilidad",
+
+        ADD_TO_SUCCESSION: "Alta en sucesiÃ³n",
+        REMOVE_FROM_SUCCESSION: "Baja de sucesiÃ³n",
+        MOVE_UP: "SubiÃ³ en sucesiÃ³n",
+        MOVE_DOWN: "BajÃ³ en sucesiÃ³n",
+
+        PUBLISH_DISPLAY: "PublicaciÃ³n cartelera",
+    };
+
+    return translations[action] || action || "-";
+}

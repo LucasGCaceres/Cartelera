@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import LoginPage from "./pages/LoginPage.jsx";
 import AdminPage from "./pages/AdminPage.jsx";
 import HistoryPage from "./pages/HistoryPage.jsx";
@@ -62,22 +62,22 @@ function buildPathForRoute(route, plantCode) {
 }
 
 function App() {
-  const [route, setRoute] = useState(() => getRouteFromPath());
+  const [route, setRoute] = useState(() =__GT__ getRouteFromPath());
   const [selectedPlantCode, setSelectedPlantCode] = useState(
-      () => getPlantCodeFromPath() || DEFAULT_PLANT_CODE
+      () =__GT__ getPlantCodeFromPath() || DEFAULT_PLANT_CODE
   );
   const [currentUser, setCurrentUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
 
-  const canUseAdminArea = useMemo(() => {
+  const canUseAdminArea = useMemo(() =__GT__ {
     if (!currentUser) {
       return false;
     }
 
-    return Boolean(currentUser.platformAdmin || currentUser.plants?.length > 0);
+    return Boolean(currentUser.platformAdmin || currentUser.plants?.length __GT__ 0);
   }, [currentUser]);
 
-  const canViewUsers = useMemo(() => {
+  const canViewUsers = useMemo(() =__GT__ {
     if (!currentUser) {
       return false;
     }
@@ -86,12 +86,12 @@ function App() {
       return true;
     }
 
-    return currentUser.plants?.some((plant) => plant.role === "ADMIN") || false;
+    return currentUser.plants?.some((plant) =__GT__ plant.role === "ADMIN") || false;
   }, [currentUser]);
 
   const canViewHistory = canViewUsers;
 
-  useEffect(() => {
+  useEffect(() =__GT__ {
     async function checkSession() {
       const initialRoute = getRouteFromPath();
       const pathPlantCode = getPlantCodeFromPath();
@@ -100,6 +100,11 @@ function App() {
         setSelectedPlantCode(pathPlantCode);
       }
 
+      /*
+       * /display/{plantCode} es pÃºblico.
+       * Intentamos cargar sesiÃ³n para mostrar controles futuros si existe,
+       * pero no bloqueamos el display si /me devuelve 401.
+       */
       if (initialRoute === "display") {
         try {
           const user = await getCurrentUser();
@@ -113,6 +118,9 @@ function App() {
         return;
       }
 
+      /*
+       * /, /users, /history y /app/{plantCode} requieren sesiÃ³n.
+       */
       try {
         const user = await getCurrentUser();
 
@@ -129,7 +137,7 @@ function App() {
     checkSession();
   }, []);
 
-  useEffect(() => {
+  useEffect(() =__GT__ {
     function handlePopState() {
       const nextRoute = getRouteFromPath();
       const pathPlantCode = getPlantCodeFromPath();
@@ -143,7 +151,7 @@ function App() {
 
     window.addEventListener("popstate", handlePopState);
 
-    return () => {
+    return () =__GT__ {
       window.removeEventListener("popstate", handlePopState);
     };
   }, []);
@@ -197,12 +205,18 @@ function App() {
     setCurrentUser(user);
     setSelectedPlantCode(defaultPlantCode);
 
+    /*
+     * Si el login ocurriÃ³ desde /app/{plantCode}, mantenemos esa ruta.
+     */
     if (pathRoute === "app") {
       setRoute("app");
       window.history.pushState({}, "", `/app/${defaultPlantCode}`);
       return;
     }
 
+    /*
+     * Usuario autenticado sin permisos administrativos.
+     */
     if (!user.platformAdmin && (!user.plants || user.plants.length === 0)) {
       setRoute("display");
       window.history.pushState({}, "", `/display/${defaultPlantCode}`);
@@ -228,141 +242,141 @@ function App() {
 
   if (route === "display") {
     return (
-        <DisplayPage
+        __LT__DisplayPage
             plantCode={selectedPlantCode || getPlantCodeFromPath() || DEFAULT_PLANT_CODE}
             currentUser={currentUser}
             onLogout={handleLogout}
             interactive={false}
             canOpenPanel={false}
             onOpenPanel={handleOpenPanel}
-        />
+        /__GT__
     );
   }
 
   if (authLoading) {
     return (
-        <div className="app-shell">
-          <div className="card">
-            <h2>Cargando sesión...</h2>
-            <p>Verificando si ya hay un usuario autenticado.</p>
-          </div>
-        </div>
+        __LT__div className="app-shell"__GT__
+          __LT__div className="card"__GT__
+            __LT__h2__GT__Cargando sesiÃ³n...__LT__/h2__GT__
+            __LT__p__GT__Verificando si ya hay un usuario autenticado.__LT__/p__GT__
+          __LT__/div__GT__
+        __LT__/div__GT__
     );
   }
 
   if (!currentUser) {
-    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+    return __LT__LoginPage onLoginSuccess={handleLoginSuccess} /__GT__;
   }
 
   if (route === "app") {
     return (
-        <DisplayPage
+        __LT__DisplayPage
             plantCode={selectedPlantCode || getPlantCodeFromPath() || getDefaultPlantCode(currentUser)}
             currentUser={currentUser}
             onLogout={handleLogout}
             interactive
             canOpenPanel={canUseAdminArea}
             onOpenPanel={handleOpenPanel}
-        />
+        /__GT__
     );
   }
 
   if (!canUseAdminArea) {
     return (
-        <div className="app-shell">
-          <div className="card">
-            <h2>Sin permisos administrativos</h2>
-            <p>
-              Tu usuario está autenticado, pero todavía no tiene permisos asignados
+        __LT__div className="app-shell"__GT__
+          __LT__div className="card"__GT__
+            __LT__h2__GT__Sin permisos administrativos__LT__/h2__GT__
+            __LT__p__GT__
+              Tu usuario estÃ¡ autenticado, pero todavÃ­a no tiene permisos asignados
               en ninguna planta.
-            </p>
+            __LT__/p__GT__
 
-            <div className="action-row">
-              <button
+            __LT__div className="action-row"__GT__
+              __LT__button
                   type="button"
-                  onClick={() => navigateTo("display", selectedPlantCode || DEFAULT_PLANT_CODE)}
-              >
-                Abrir cartelera pública
-              </button>
+                  onClick={() =__GT__ navigateTo("display", selectedPlantCode || DEFAULT_PLANT_CODE)}
+              __GT__
+                Abrir cartelera pÃºblica
+              __LT__/button__GT__
 
-              <button type="button" onClick={handleLogout}>
+              __LT__button type="button" onClick={handleLogout}__GT__
                 Salir
-              </button>
-            </div>
-          </div>
-        </div>
+              __LT__/button__GT__
+            __LT__/div__GT__
+          __LT__/div__GT__
+        __LT__/div__GT__
     );
   }
 
   if (route === "history") {
     if (!canViewHistory) {
       return (
-          <div className="app-shell">
-            <div className="card">
-              <h2>Acceso no permitido</h2>
-              <p>No tenés permisos para ver el historial.</p>
+          __LT__div className="app-shell"__GT__
+            __LT__div className="card"__GT__
+              __LT__h2__GT__Acceso no permitido__LT__/h2__GT__
+              __LT__p__GT__No tenÃ©s permisos para ver el historial.__LT__/p__GT__
 
-              <div className="action-row">
-                <button type="button" onClick={() => navigateTo("admin")}>
+              __LT__div className="action-row"__GT__
+                __LT__button type="button" onClick={() =__GT__ navigateTo("admin")}__GT__
                   Volver al panel
-                </button>
-              </div>
-            </div>
-          </div>
+                __LT__/button__GT__
+              __LT__/div__GT__
+            __LT__/div__GT__
+          __LT__/div__GT__
       );
     }
 
     return (
-        <HistoryPage
+        __LT__HistoryPage
             activeRoute="history"
             onNavigate={navigateTo}
             currentUser={currentUser}
             onLogout={handleLogout}
             selectedPlantCode={selectedPlantCode || getDefaultPlantCode(currentUser)}
             onPlantChange={handlePlantChange}
-        />
+        /__GT__
     );
   }
 
   if (route === "users") {
     if (!canViewUsers) {
       return (
-          <div className="app-shell">
-            <div className="card">
-              <h2>Acceso no permitido</h2>
-              <p>No tenés permisos para administrar usuarios.</p>
+          __LT__div className="app-shell"__GT__
+            __LT__div className="card"__GT__
+              __LT__h2__GT__Acceso no permitido__LT__/h2__GT__
+              __LT__p__GT__No tenÃ©s permisos para administrar usuarios.__LT__/p__GT__
 
-              <div className="action-row">
-                <button type="button" onClick={() => navigateTo("admin")}>
+              __LT__div className="action-row"__GT__
+                __LT__button type="button" onClick={() =__GT__ navigateTo("admin")}__GT__
                   Volver al panel
-                </button>
-              </div>
-            </div>
-          </div>
+                __LT__/button__GT__
+              __LT__/div__GT__
+            __LT__/div__GT__
+          __LT__/div__GT__
       );
     }
 
     return (
-        <UsersPage
+        __LT__UsersPage
             activeRoute="users"
             onNavigate={navigateTo}
             currentUser={currentUser}
             onLogout={handleLogout}
             selectedPlantCode={selectedPlantCode || getDefaultPlantCode(currentUser)}
             onPlantChange={handlePlantChange}
-        />
+        /__GT__
     );
   }
 
   return (
-      <AdminPage
+      __LT__AdminPage
           activeRoute="admin"
           onNavigate={navigateTo}
           currentUser={currentUser}
           onLogout={handleLogout}
           selectedPlantCode={selectedPlantCode || getDefaultPlantCode(currentUser)}
           onPlantChange={handlePlantChange}
-      />
+      /__GT__
   );
 }
 

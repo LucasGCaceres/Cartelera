@@ -1,0 +1,1851 @@
+﻿
+
+==================== package.json ====================
+
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "eslint": "^10.3.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
+    "vite": "^8.0.12"
+  }
+}
+
+
+==================== vite.config.js ====================
+
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        secure: false
+      }
+    }
+  }
+})
+
+
+==================== index.html ====================
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>frontend</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+
+
+==================== src/main.jsx ====================
+
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+
+import "./styles/global.css";
+import "./styles/layout.css";
+import "./styles/forms.css";
+import "./styles/tables.css";
+import "./styles/badges.css";
+
+import App from './App.jsx'
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)
+
+
+==================== src/App.jsx ====================
+
+import { useEffect, useState } from "react";
+import LoginPage from "./pages/LoginPage.jsx";
+import AdminPage from "./pages/AdminPage.jsx";
+import HistoryPage from "./pages/HistoryPage.jsx";
+import UsersPage from "./pages/UsersPage.jsx";
+import DisplayPage from "./pages/DisplayPage.jsx";
+import { getCurrentUser, logout } from "./api/carteleraApi";
+import "./App.css";
+
+
+function App() {
+  const [route, setRoute] = useState("admin");
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    const currentPath = window.location.pathname;
+
+    if (currentPath.includes("display")) {
+      setRoute("display");
+    } else if (currentPath.includes("history")) {
+      setRoute("history");
+    } else if (currentPath.includes("users")) {
+      setRoute("users");
+    } else {
+      setRoute("admin");
+    }
+  }, []);
+
+  useEffect(() => {
+    async function checkSession() {
+      try {
+        const user = await getCurrentUser();
+        setCurrentUser(user);
+
+        if (user.role === "LECTOR" && !window.location.pathname.includes("display")) {
+          setRoute("display");
+          window.history.replaceState({}, "", "/display");
+        }
+      } catch (err) {
+        setCurrentUser(null);
+      } finally {
+        setAuthLoading(false);
+      }
+    }
+
+    checkSession();
+  }, []);
+
+  function navigateTo(nextRoute) {
+    if (currentUser?.role === "LECTOR" && nextRoute !== "display") {
+      return;
+    }
+
+    if (
+        (nextRoute === "history" || nextRoute === "users") &&
+        currentUser?.role !== "ADMIN"
+    ) {
+      return;
+    }
+
+    const pathByRoute = {
+      admin: "/",
+      history: "/history",
+      users: "/users",
+      display: "/display",
+    };
+
+    setRoute(nextRoute);
+    window.history.pushState({}, "", pathByRoute[nextRoute]);
+  }
+
+  async function handleLoginSuccess(user) {
+    setCurrentUser(user);
+
+    if (user.role === "LECTOR") {
+      setRoute("display");
+      window.history.pushState({}, "", "/display");
+      return;
+    }
+
+    setRoute("admin");
+    window.history.pushState({}, "", "/");
+  }
+
+  async function handleLogout() {
+    try {
+      await logout();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setCurrentUser(null);
+      setRoute("admin");
+      window.history.pushState({}, "", "/");
+    }
+  }
+
+  if (route === "display") {
+    return <DisplayPage currentUser={currentUser} onLogout={handleLogout} />;
+  }
+
+  if (authLoading) {
+    return (
+        <main className="page">
+          <section className="card">
+            <p>Cargando sesiÃ³n...</p>
+          </section>
+        </main>
+    );
+  }
+
+  if (!currentUser) {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  if (currentUser.role === "LECTOR") {
+    return <DisplayPage currentUser={currentUser} onLogout={handleLogout} />;
+  }
+
+  if (route === "history") {
+    if (currentUser.role !== "ADMIN") {
+      return (
+          <AdminPage
+              activeRoute="admin"
+              onNavigate={navigateTo}
+              currentUser={currentUser}
+              onLogout={handleLogout}
+          />
+      );
+    }
+
+    return (
+        <HistoryPage
+            activeRoute="history"
+            onNavigate={navigateTo}
+            currentUser={currentUser}
+            onLogout={handleLogout}
+        />
+    );
+  }
+
+  if (route === "users") {
+    if (currentUser.role !== "ADMIN") {
+      return (
+          <AdminPage
+              activeRoute="admin"
+              onNavigate={navigateTo}
+              currentUser={currentUser}
+              onLogout={handleLogout}
+          />
+      );
+    }
+
+    return (
+        <UsersPage
+            activeRoute="users"
+            onNavigate={navigateTo}
+            currentUser={currentUser}
+            onLogout={handleLogout}
+        />
+    );
+  }
+
+  return (
+      <AdminPage
+          activeRoute="admin"
+          onNavigate={navigateTo}
+          currentUser={currentUser}
+          onLogout={handleLogout}
+      />
+  );
+}
+
+export default App;
+
+
+==================== src/api/carteleraApi.js ====================
+
+const API_BASE_URL = "/api";
+
+async function request(endpoint, options = {}) {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        credentials: "include",
+        cache: "no-store",
+        headers: {
+            "Content-Type": "application/json",
+            ...(options.headers || {}),
+        },
+        ...options,
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        const error = new Error(errorText || `Error HTTP ${response.status}`);
+        error.status = response.status;
+        throw error
+    }
+
+    if (response.status === 204) {
+        return null;
+    }
+
+    const text = await response.text();
+
+    if (!text) {
+        return null;
+    }
+
+    return JSON.parse(text);
+}
+
+export function login(username, password) {
+    return request("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ username, password }),
+    });
+}
+
+export function logout() {
+    return request("/auth/logout", {
+        method: "POST",
+    });
+}
+
+export function getCurrentUser() {
+    return request("/auth/me");
+}
+
+export function getAdminState() {
+    return request(`/admin/state?ts=${Date.now()}`);
+}
+
+export function createPerson(personData) {
+    return request("/persons", {
+        method: "POST",
+        body: JSON.stringify(personData),
+    });
+}
+
+export function updateAvailability(personId, available) {
+    return request(`/persons/${personId}/availability`, {
+        method: "PATCH",
+        body: JSON.stringify({ available }),
+    });
+}
+
+export function movePersonUp(personId) {
+    return request(`/persons/${personId}/move-up`, {
+        method: "POST",
+    });
+}
+
+export function movePersonDown(personId) {
+    return request(`/persons/${personId}/move-down`, {
+        method: "POST",
+    });
+}
+
+export function deletePerson(personId) {
+    return request(`/persons/${personId}`, {
+        method: "DELETE",
+    });
+}
+
+export function publishDisplay() {
+    return request("/display/publish", {
+        method: "POST",
+    });
+}
+
+export function getPublishedDisplay() {
+    return request(`/display/published?ts=${Date.now()}`);
+}
+
+export function getAuditLogs() {
+    return request(`/audit-logs?ts=${Date.now()}`);
+}
+
+export function getUsers() {
+    return request(`/users?ts=${Date.now()}`);
+}
+
+export function createUser(userData) {
+    return request("/users", {
+        method: "POST",
+        body: JSON.stringify(userData),
+    });
+}
+
+export function updateUserRole(userId, role) {
+    return request(`/users/${userId}/role`, {
+        method: "PATCH",
+        body: JSON.stringify({ role }),
+    });
+}
+
+export function updateUserStatus(userId, active) {
+    return request(`/users/${userId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ active }),
+    });
+}
+
+export function resetUserPassword(userId, password) {
+    return request(`/users/${userId}/password`, {
+        method: "PATCH",
+        body: JSON.stringify({ password }),
+    });
+}
+
+export function registerUser(userData) {
+    return request("/auth/register", {
+        method: "POST",
+        body: JSON.stringify(userData),
+    });
+}
+
+
+==================== src/components/Topbar.jsx ====================
+
+import LoginPage from "../pages/LoginPage.jsx";
+
+function Topbar({ subtitle, activeRoute, onNavigate, currentUser, onLogout }) {
+    const isAdmin = currentUser?.role === "ADMIN";
+
+    function openDisplay() {
+        window.open("/display", "_blank", "noopener,noreferrer");
+    }
+
+    return (
+        <header className="topbar">
+            <div>
+                <h1>Cartelera responsable de planta</h1>
+                <p>{subtitle}</p>
+            </div>
+
+            <nav className="topbar-actions" aria-label="NavegaciÃ³n principal">
+                <button
+                    type="button"
+                    className={activeRoute === "admin" ? "nav-button active" : "nav-button"}
+                    onClick={() => onNavigate("admin")}
+                >
+                    Panel
+                </button>
+
+                {isAdmin && (
+                    <button
+                        type="button"
+                        className={activeRoute === "history" ? "nav-button active" : "nav-button"}
+                        onClick={() => onNavigate("history")}
+                    >
+                        Historial
+                    </button>
+                )}
+
+                {isAdmin && (
+                    <button
+                        type="button"
+                        className={activeRoute === "users" ? "nav-button active" : "nav-button"}
+                        onClick={() => onNavigate("users")}
+                    >
+                        Usuarios
+                    </button>
+                )}
+
+                <button
+                    type="button"
+                    className="nav-button display-nav-button"
+                    onClick={openDisplay}
+                >
+                    Abrir cartelera
+                </button>
+
+                <div className="user-pill">
+                    <span>{currentUser?.fullName}</span>
+                    <strong>{currentUser?.role}</strong>
+                </div>
+
+                <button type="button" className="nav-button logout-button" onClick={onLogout}>
+                    Salir
+                </button>
+            </nav>
+        </header>
+    );
+}
+
+export default Topbar;
+
+
+==================== src/pages/LoginPage.jsx ====================
+
+import { useState } from "react";
+import { login, registerUser } from "../api/carteleraApi.js";
+
+function LoginPage({ onLoginSuccess }) {
+    const [mode, setMode] = useState("login");
+
+    const [formData, setFormData] = useState({
+        username: "",
+        password: "",
+        fullName: "",
+    });
+
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+    const [successMessage, setSuccessMessage] = useState("");
+
+    function handleChange(event) {
+        const { name, value } = event.target;
+
+        setFormData((current) => ({
+            ...current,
+            [name]: value,
+        }));
+    }
+
+    function switchMode(nextMode) {
+        setMode(nextMode);
+        setError("");
+        setSuccessMessage("");
+
+        setFormData({
+            username: "",
+            password: "",
+            fullName: "",
+        });
+    }
+
+    async function handleLoginSubmit(event) {
+        event.preventDefault();
+
+        if (!formData.username.trim() || !formData.password.trim()) {
+            setError("Usuario y contraseÃ±a son obligatorios.");
+            return;
+        }
+
+        try {
+            setLoading(true);
+            setError("");
+            setSuccessMessage("");
+
+            const user = await login(formData.username.trim(), formData.password);
+
+            onLoginSuccess(user);
+        } catch (err) {
+            if (err.status === 423) {
+                setError("El usuario estÃ¡ deshabilitado. ContactÃ¡ a un administrador.");
+            } else {
+                setError("Usuario o contraseÃ±a incorrectos.");
+            }
+
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function handleRegisterSubmit(event) {
+        event.preventDefault();
+
+        if (
+            !formData.username.trim() ||
+            !formData.password.trim() ||
+            !formData.fullName.trim()
+        ) {
+            setError("Usuario, nombre completo y contraseÃ±a son obligatorios.");
+            return;
+        }
+
+        try {
+            setLoading(true);
+            setError("");
+            setSuccessMessage("");
+
+            await registerUser({
+                username: formData.username.trim(),
+                password: formData.password,
+                fullName: formData.fullName.trim(),
+            });
+
+            setSuccessMessage(
+                "Cuenta creada como LECTOR. Ahora podÃ©s iniciar sesiÃ³n."
+            );
+
+            setMode("login");
+
+            setFormData({
+                username: formData.username.trim(),
+                password: "",
+                fullName: "",
+            });
+        } catch (err) {
+            if (err.status === 400) {
+                setError("No se pudo crear la cuenta. RevisÃ¡ los datos ingresados.");
+            } else if (err.status === 409) {
+                setError("Ya existe un usuario con ese nombre.");
+            } else {
+                setError("No se pudo crear la cuenta. VerificÃ¡ que el usuario no exista.");
+            }
+
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    const isRegisterMode = mode === "register";
+
+    return (
+        <main className="login-page">
+            <section className="login-card">
+                <span className="eyebrow">Cartelera Responsable de Planta</span>
+
+                <h1>{isRegisterMode ? "Crear cuenta" : "Iniciar sesiÃ³n"}</h1>
+
+                <p>
+                    {isRegisterMode
+                        ? "La cuenta se crearÃ¡ inicialmente como LECTOR."
+                        : "IngresÃ¡ con tu usuario para administrar la cartelera."}
+                </p>
+
+                {error && <div className="error-box">{error}</div>}
+
+                {successMessage && (
+                    <div className="pending-box">
+                        <strong>{successMessage}</strong>
+                    </div>
+                )}
+
+                <form
+                    className="person-form"
+                    onSubmit={isRegisterMode ? handleRegisterSubmit : handleLoginSubmit}
+                >
+                    {isRegisterMode && (
+                        <label>
+                            Nombre completo
+                            <input
+                                type="text"
+                                name="fullName"
+                                value={formData.fullName}
+                                onChange={handleChange}
+                                required
+                            />
+                        </label>
+                    )}
+
+                    <label>
+                        Usuario
+                        <input
+                            type="text"
+                            name="username"
+                            value={formData.username}
+                            onChange={handleChange}
+                            autoComplete="username"
+                            required
+                        />
+                    </label>
+
+                    <label>
+                        ContraseÃ±a
+                        <input
+                            type="password"
+                            name="password"
+                            value={formData.password}
+                            onChange={handleChange}
+                            autoComplete={isRegisterMode ? "new-password" : "current-password"}
+                            required
+                        />
+                    </label>
+
+                    <button type="submit" disabled={loading}>
+                        {loading
+                            ? isRegisterMode
+                                ? "Creando..."
+                                : "Ingresando..."
+                            : isRegisterMode
+                                ? "Crear cuenta"
+                                : "Ingresar"}
+                    </button>
+                </form>
+
+                <div className="login-help">
+                    {isRegisterMode ? (
+                        <>
+                            <strong>Â¿Ya tenÃ©s cuenta?</strong>
+
+                            <button
+                                type="button"
+                                className="link-button"
+                                onClick={() => switchMode("login")}
+                            >
+                                Volver al inicio de sesiÃ³n
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <strong>Â¿No tenÃ©s cuenta?</strong>
+
+                            <button
+                                type="button"
+                                className="link-button"
+                                onClick={() => switchMode("register")}
+                            >
+                                Crear cuenta nueva
+                            </button>
+                        </>
+                    )}
+                </div>
+            </section>
+        </main>
+    );
+}
+
+export default LoginPage;
+
+
+==================== src/pages/DisplayPage.jsx ====================
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { getPublishedDisplay } from "../api/carteleraApi.js";
+import "../styles/display.css";
+
+const DISPLAY_BACKGROUNDS = [
+    "/assets/display/Fondo1.jpg",
+    // "/assets/display/Fondo2.jpg", // Agregar cuando estÃ© corregida/reexportada
+    "/assets/display/Fondo3.jpg",
+    "/assets/display/Fondo4.jpg",
+];
+
+const DISPLAY_LOGO = "/assets/display/Logo_Gate.png";
+
+function DisplayPage({ currentUser, onLogout }) {
+    const [publishedDisplay, setPublishedDisplay] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [connectionError, setConnectionError] = useState(false);
+    const [now, setNow] = useState(new Date());
+    const [backgroundIndex, setBackgroundIndex] = useState(0);
+    const [showControls, setShowControls] = useState(false);
+
+    const controlsTimeoutRef = useRef(null);
+
+    async function loadPublishedDisplay() {
+        try {
+            const data = await getPublishedDisplay();
+            setPublishedDisplay(data);
+            setConnectionError(false);
+        } catch (err) {
+            console.error(err);
+            setConnectionError(true);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    function showTemporaryControls() {
+        if (!currentUser) {
+            return;
+        }
+
+        setShowControls(true);
+
+        if (controlsTimeoutRef.current) {
+            window.clearTimeout(controlsTimeoutRef.current);
+        }
+
+        controlsTimeoutRef.current = window.setTimeout(() => {
+            setShowControls(false);
+        }, 5000);
+    }
+
+    useEffect(() => {
+        DISPLAY_BACKGROUNDS.forEach((src) => {
+            const image = new Image();
+            image.src = src;
+        });
+    }, []);
+
+    useEffect(() => {
+        loadPublishedDisplay();
+
+        const displayIntervalId = window.setInterval(() => {
+            loadPublishedDisplay();
+        }, 2000);
+
+        return () => window.clearInterval(displayIntervalId);
+    }, []);
+
+    useEffect(() => {
+        const clockIntervalId = window.setInterval(() => {
+            setNow(new Date());
+        }, 1000);
+
+        return () => window.clearInterval(clockIntervalId);
+    }, []);
+
+    useEffect(() => {
+        const backgroundIntervalId = window.setInterval(() => {
+            setBackgroundIndex((current) => {
+                if (DISPLAY_BACKGROUNDS.length <= 1) {
+                    return 0;
+                }
+
+                return (current + 1) % DISPLAY_BACKGROUNDS.length;
+            });
+        }, 30000);
+
+        return () => window.clearInterval(backgroundIntervalId);
+    }, []);
+
+    useEffect(() => {
+        window.addEventListener("mousemove", showTemporaryControls);
+        window.addEventListener("mousedown", showTemporaryControls);
+        window.addEventListener("touchstart", showTemporaryControls);
+        window.addEventListener("keydown", showTemporaryControls);
+
+        return () => {
+            window.removeEventListener("mousemove", showTemporaryControls);
+            window.removeEventListener("mousedown", showTemporaryControls);
+            window.removeEventListener("touchstart", showTemporaryControls);
+            window.removeEventListener("keydown", showTemporaryControls);
+
+            if (controlsTimeoutRef.current) {
+                window.clearTimeout(controlsTimeoutRef.current);
+            }
+        };
+    }, [currentUser]);
+
+    const dateParts = useMemo(() => {
+        const month = now
+            .toLocaleDateString("es-AR", { month: "short" })
+            .replace(".", "");
+
+        return {
+            month: month.charAt(0).toUpperCase() + month.slice(1),
+            day: now.toLocaleDateString("es-AR", { day: "2-digit" }),
+            year: now.toLocaleDateString("es-AR", { year: "numeric" }),
+            time: now.toLocaleTimeString("es-AR", {
+                hour: "2-digit",
+                minute: "2-digit",
+            }),
+        };
+    }, [now]);
+
+    const backgroundImage = DISPLAY_BACKGROUNDS[backgroundIndex];
+
+    const responsibleName = publishedDisplay?.responsibleName;
+    const responsiblePosition =
+        publishedDisplay?.responsiblePosition || "Responsable de Planta";
+
+    return (
+        <main
+            className="display-page"
+            style={{
+                backgroundImage: `linear-gradient(90deg, rgba(5, 20, 35, 0.44), rgba(5, 20, 35, 0.12)), url("${backgroundImage}")`,
+            }}
+        >
+            <img
+                className="display-logo"
+                src={DISPLAY_LOGO}
+                alt="Logo Gate Gourmet"
+            />
+
+            {currentUser && showControls && (
+                <div className="display-session-controls">
+                    <button
+                        type="button"
+                        className="display-hidden-logout-button"
+                        onClick={onLogout}
+                    >
+                        Salir
+                    </button>
+                </div>
+            )}
+
+            <section className="display-layout">
+                <article className="display-panel">
+                    <div className="display-date-card" aria-label="Fecha actual">
+                        <span>{dateParts.month}</span>
+                        <strong>{dateParts.day}</strong>
+                        <span>{dateParts.year}</span>
+                    </div>
+
+                    <div className="display-responsible-card">
+                        <div className="display-plant-name">
+                            {publishedDisplay?.plantName || "PLANTA EZEIZA"}
+                        </div>
+
+                        {connectionError && (
+                            <div className="display-connection-warning">
+                                Reconectando con el servidor...
+                            </div>
+                        )}
+
+                        {loading ? (
+                            <>
+                                <h1>Cargando...</h1>
+                                <p>Obteniendo cartelera publicada</p>
+                            </>
+                        ) : responsibleName ? (
+                            <>
+                                <h1>{responsibleName}</h1>
+                                <p>{responsiblePosition}</p>
+                            </>
+                        ) : (
+                            <>
+                                <h1>No hay responsable disponible</h1>
+                                <p>{publishedDisplay?.mainTitle || "Responsable de Planta"}</p>
+                            </>
+                        )}
+                    </div>
+                </article>
+            </section>
+
+            <time className="display-clock" dateTime={now.toISOString()}>
+                {dateParts.time}
+            </time>
+        </main>
+    );
+}
+
+export default DisplayPage;
+
+
+==================== src/pages/AdminPage.jsx ====================
+
+import Topbar from "../components/Topbar.jsx";
+import {useState, useEffect} from "react";
+import {
+    createPerson,
+        deletePerson,
+        getAdminState,
+        movePersonDown,
+        movePersonUp,
+        publishDisplay,
+        updateAvailability,
+} from "../api/carteleraApi.js";
+
+
+function AdminPage({ activeRoute, onNavigate, currentUser, onLogout }) {
+    const [adminState, setAdminState] = useState({
+        currentResponsible: null,
+        successionList: [],
+        publishedDisplay: null,
+    });
+
+    const [formData, setFormData] = useState({
+        firstName: "",
+        lastName: "",
+        position: "",
+    });
+
+    const [loading, setLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState(false);
+    const [error, setError] = useState("");
+
+    async function loadAdminState() {
+        try {
+            setError("");
+            const data = await getAdminState();
+            setAdminState(data);
+        } catch (err) {
+            setError("No se pudo cargar el estado del panel.");
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    useEffect(() => {
+        loadAdminState();
+    }, []);
+
+    function handleInputChange(event) {
+        const { name, value } = event.target;
+
+        setFormData((current) => ({
+            ...current,
+            [name]: value,
+        }));
+    }
+
+    async function handleCreatePerson(event) {
+        event.preventDefault();
+
+        if (!formData.firstName.trim() || !formData.lastName.trim()) {
+            setError("Nombre y apellido son obligatorios.");
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setError("");
+
+            const data = await createPerson({
+                firstName: formData.firstName.trim(),
+                lastName: formData.lastName.trim(),
+                position: formData.position.trim(),
+            });
+
+            setAdminState(data);
+
+            setFormData({
+                firstName: "",
+                lastName: "",
+                position: "",
+            });
+        } catch (err) {
+            setError(err.message || "No se pudo crear la persona.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleAvailabilityChange(personId, available) {
+        try {
+            setActionLoading(true);
+            setError("");
+
+            const data = await updateAvailability(personId, available);
+            setAdminState(data);
+        } catch (err) {
+            setError("No se pudo actualizar la disponibilidad.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleMoveUp(personId) {
+        try {
+            setActionLoading(true);
+            setError("");
+
+            const data = await movePersonUp(personId);
+            setAdminState(data);
+        } catch (err) {
+            setError("No se pudo subir la persona en la lista.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleMoveDown(personId) {
+        try {
+            setActionLoading(true);
+            setError("");
+
+            const data = await movePersonDown(personId);
+            setAdminState(data);
+        } catch (err) {
+            setError("No se pudo bajar la persona en la lista.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleDeletePerson(person) {
+        const confirmed = window.confirm(
+            `Â¿Seguro que querÃ©s eliminar a ${person.fullName} de la lista?`
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setError("");
+
+            const data = await deletePerson(person.id);
+            setAdminState(data);
+        } catch (err) {
+            setError("No se pudo eliminar la persona.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handlePublishDisplay() {
+        const confirmed = window.confirm(
+            "Â¿ConfirmÃ¡s que querÃ©s sincronizar la cartelera con el responsable resultante actual?"
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setError("");
+
+            const data = await publishDisplay();
+            setAdminState(data);
+        } catch (err) {
+            setError("No se pudo sincronizar la cartelera.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    if (loading) {
+        return (
+            <main className="page">
+                <section className="card">
+                    <p>Cargando panel...</p>
+                </section>
+            </main>
+        );
+    }
+
+    const currentResponsible = adminState.currentResponsible;
+    const successionList = adminState.successionList || [];
+    const publishedDisplay = adminState.publishedDisplay;
+
+    const isAdmin = currentUser?.role === "ADMIN";
+    const isOperator = currentUser?.role === "OPERADOR";
+
+    const canCreatePersons = isAdmin;
+    const canDeletePersons = isAdmin;
+    const canOperateDisplay = isAdmin || isOperator;
+
+    const previewPersonId = currentResponsible?.id ?? null;
+    const publishedPersonId = publishedDisplay?.personId ?? null;
+
+    const hasInitialPublication = Boolean(publishedDisplay);
+    const hasPendingChanges =
+        hasInitialPublication && previewPersonId !== publishedPersonId;
+
+    const canPublish = !hasInitialPublication || hasPendingChanges;
+
+    return (
+        <main className="page">
+            <Topbar
+                subtitle="Planta Ezeiza"
+                activeRoute={activeRoute}
+                onNavigate={onNavigate}
+                currentUser={currentUser}
+                onLogout={onLogout}
+            />
+
+            {error && <div className="error-box">{error}</div>}
+
+            {!hasInitialPublication && (
+                <div className="pending-box">
+                    <strong>Cartelera sin publicaciÃ³n inicial.</strong>
+                    <span>
+            TodavÃ­a no se sincronizÃ³ la cartelera. PresionÃ¡ â€œSincronizar
+            carteleraâ€ para publicar el responsable res ultante.
+          </span>
+                </div>
+            )}
+
+            {hasPendingChanges && (
+                <div className="pending-box warning-pending">
+                    <strong>Hay cambios pendientes sin publicar.</strong>
+                    <span>
+            La vista previa actual no coincide con la cartelera publicada. La TV
+            no se actualizarÃ¡ hasta presionar â€œSincronizar carteleraâ€.
+          </span>
+                </div>
+            )}
+
+            <section className={canCreatePersons ? "grid" : "grid single-card-grid"}>
+                <section className="card responsible-card">
+                    <span className="eyebrow">Vista previa</span>
+                    <h2>Responsable resultante</h2>
+
+                    {currentResponsible ? (
+                        <>
+                            <p className="preview-name">{currentResponsible.fullName}</p>
+                            <p>{currentResponsible.position || "Sin cargo informado"}</p>
+                        </>
+                    ) : (
+                        <>
+                            <p className="preview-name">No hay responsable disponible</p>
+                            <p>MarcÃ¡ al menos una persona como disponible.</p>
+                        </>
+                    )}
+
+                    <div className="publish-box">
+                        <span className="eyebrow">Cartelera publicada</span>
+
+                        {publishedDisplay ? (
+                            publishedDisplay.responsibleName ? (
+                                <>
+                                    <strong>{publishedDisplay.responsibleName}</strong>
+                                    <span>
+              {publishedDisplay.responsiblePosition || "Sin cargo informado"}
+            </span>
+                                </>
+                            ) : (
+                                <>
+                                    <strong>No hay responsable publicado</strong>
+                                    <span>La Ãºltima publicaciÃ³n no tenÃ­a responsable disponible.</span>
+                                </>
+                            )
+                        ) : (
+                            <>
+                                <strong>Sin publicaciÃ³n inicial</strong>
+                                <span>PresionÃ¡ sincronizar para publicar por primera vez.</span>
+                            </>
+                        )}
+                    </div>
+
+                    <button
+                        type="button"
+                        className="publish-button"
+                        onClick={handlePublishDisplay}
+                        disabled={actionLoading || !canPublish || !canOperateDisplay}
+                    >
+                        {actionLoading
+                            ? "Sincronizando..."
+                            : !hasInitialPublication
+                                ? "Publicar cartelera"
+                                : hasPendingChanges
+                                    ? "Sincronizar cartelera"
+                                    : "Cartelera actualizada"}
+                    </button>
+                </section>
+
+                {canCreatePersons && (
+                    <section className="card">
+                        <span className="eyebrow">Nueva persona</span>
+                        <h2>Cargar persona</h2>
+
+                        <form className="person-form" onSubmit={handleCreatePerson}>
+                            <label>
+                                Nombre
+                                <input
+                                    type="text"
+                                    name="firstName"
+                                    value={formData.firstName}
+                                    onChange={handleInputChange}
+                                    required
+                                />
+                            </label>
+
+                            <label>
+                                Apellido
+                                <input
+                                    type="text"
+                                    name="lastName"
+                                    value={formData.lastName}
+                                    onChange={handleInputChange}
+                                    required
+                                />
+                            </label>
+
+                            <label>
+                                Cargo
+                                <input
+                                    type="text"
+                                    name="position"
+                                    value={formData.position}
+                                    onChange={handleInputChange}
+                                />
+                            </label>
+
+                            <button type="submit" disabled={actionLoading}>
+                                {actionLoading ? "Guardando..." : "Guardar persona"}
+                            </button>
+                        </form>
+                    </section>
+                )}
+            </section>
+
+            <section className="card">
+                <div className="section-header">
+                    <div>
+                        <span className="eyebrow">SucesiÃ³n</span>
+                        <h2>Lista de sucesiÃ³n y disponibilidad</h2>
+                    </div>
+                </div>
+
+                {successionList.length === 0 ? (
+                    <p className="empty-message">TodavÃ­a no hay personas cargadas.</p>
+                ) : (
+                    <div className="table-wrapper">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>Orden</th>
+                                <th>Persona</th>
+                                <th>Cargo</th>
+                                <th>Disponible</th>
+                                <th>Responsable</th>
+                                <th>Acciones</th>
+                            </tr>
+                            </thead>
+
+                            <tbody>
+                            {successionList.map((item) => (
+                                <tr key={item.id}>
+                                    <td>{item.orderNumber}</td>
+
+                                    <td>
+                                        <strong>{item.person.fullName}</strong>
+                                    </td>
+
+                                    <td>{item.person.position || "-"}</td>
+
+                                    <td>
+                                        <label className="availability-toggle">
+                                            <input
+                                                type="checkbox"
+                                                checked={item.person.available}
+                                                onChange={(event) =>
+                                                    handleAvailabilityChange(
+                                                        item.person.id,
+                                                        event.target.checked
+                                                    )
+                                                }
+                                                disabled={actionLoading || !canOperateDisplay}
+                                            />
+                                            <span>{item.person.available ? "SÃ­" : "No"}</span>
+                                        </label>
+                                    </td>
+
+                                    <td>
+                                        {currentResponsible?.id === item.person.id ? (
+                                            <span className="responsible-badge">SÃ­</span>
+                                        ) : (
+                                            <span className="not-responsible-badge">No</span>
+                                        )}
+                                    </td>
+
+                                    <td>
+                                        <div className="actions">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleMoveUp(item.person.id)}
+                                                disabled={actionLoading || item.orderNumber === 1 || !canOperateDisplay}                            >
+                                                Subir
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => handleMoveDown(item.person.id)}
+                                                disabled={
+                                                    actionLoading ||
+                                                    item.orderNumber === successionList.length ||
+                                                    !canOperateDisplay
+                                                }
+                                            >
+                                                Bajar
+                                            </button>
+
+                                            {canDeletePersons && (
+                                                <button
+                                                    type="button"
+                                                    className="danger-button"
+                                                    onClick={() => handleDeletePerson(item.person)}
+                                                    disabled={actionLoading}
+                                                >
+                                                    Eliminar
+                                                </button>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </section>
+        </main>
+    );
+}
+
+export default AdminPage;
+
+
+==================== src/pages/UsersPage.jsx ====================
+
+import { useEffect, useState } from "react";
+import Topbar from "../components/Topbar.jsx";
+import {
+    createUser,
+    getUsers,
+    resetUserPassword,
+    updateUserRole,
+    updateUserStatus,
+} from "../api/carteleraApi.js";
+
+function UsersPage({ activeRoute, onNavigate, currentUser, onLogout }) {
+    const [users, setUsers] = useState([]);
+    const [formData, setFormData] = useState({
+        username: "",
+        fullName: "",
+        password: "",
+        role: "OPERADOR",
+    });
+
+    const [loading, setLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState(false);
+    const [error, setError] = useState("");
+
+    async function loadUsers() {
+        try {
+            setError("");
+            const data = await getUsers();
+            setUsers(data);
+        } catch (err) {
+            setError("No se pudieron cargar los usuarios.");
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    useEffect(() => {
+        loadUsers();
+    }, []);
+
+    function handleInputChange(event) {
+        const { name, value } = event.target;
+
+        setFormData((current) => ({
+            ...current,
+            [name]: value,
+        }));
+    }
+
+    async function handleCreateUser(event) {
+        event.preventDefault();
+
+        if (
+            !formData.username.trim() ||
+            !formData.fullName.trim() ||
+            !formData.password.trim()
+        ) {
+            setError("Usuario, nombre completo y contraseÃ±a son obligatorios.");
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setError("");
+
+            const data = await createUser({
+                username: formData.username.trim(),
+                fullName: formData.fullName.trim(),
+                password: formData.password,
+                role: formData.role,
+            });
+
+            setUsers(data);
+
+            setFormData({
+                username: "",
+                fullName: "",
+                password: "",
+                role: "OPERADOR",
+            });
+        } catch (err) {
+            setError("No se pudo crear el usuario. VerificÃ¡ que no exista ya.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleChangeRole(userId, role) {
+        try {
+            setActionLoading(true);
+            setError("");
+
+            const data = await updateUserRole(userId, role);
+            setUsers(data);
+        } catch (err) {
+            setError(err.message || "No se pudo cambiar el rol del usuario.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleToggleStatus(user) {
+        if (user.username === currentUser.username) {
+            setError("No podÃ©s desactivar tu propio usuario.");
+            return;
+        }
+
+        const confirmed = window.confirm(
+            user.active
+                ? `Â¿Seguro que querÃ©s desactivar a ${user.username}?`
+                : `Â¿Seguro que querÃ©s activar a ${user.username}?`
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setError("");
+
+            const data = await updateUserStatus(user.id, !user.active);
+            setUsers(data);
+        } catch (err) {
+            setError(err.message || "No se pudo cambiar el estado del usuario.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleResetPassword(user) {
+        const newPassword = window.prompt(
+            `IngresÃ¡ la nueva contraseÃ±a para ${user.username}`
+        );
+
+        if (!newPassword || !newPassword.trim()) {
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setError("");
+
+            const data = await resetUserPassword(user.id, newPassword.trim());
+            setUsers(data);
+        } catch (err) {
+            setError("No se pudo restablecer la contraseÃ±a.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    return (
+        <main className="page">
+            <Topbar
+                subtitle="AdministraciÃ³n de usuarios"
+                activeRoute={activeRoute}
+                onNavigate={onNavigate}
+                currentUser={currentUser}
+                onLogout={onLogout}
+            />
+
+            {error && <div className="error-box">{error}</div>}
+
+            <section className="grid">
+                <section className="card">
+                    <span className="eyebrow">Nuevo usuario</span>
+                    <h2>Crear usuario</h2>
+
+                    <form className="person-form" onSubmit={handleCreateUser}>
+                        <label>
+                            Usuario
+                            <input
+                                type="text"
+                                name="username"
+                                value={formData.username}
+                                onChange={handleInputChange}
+                                required
+                            />
+                        </label>
+
+                        <label>
+                            Nombre completo
+                            <input
+                                type="text"
+                                name="fullName"
+                                value={formData.fullName}
+                                onChange={handleInputChange}
+                                required
+                            />
+                        </label>
+
+                        <label>
+                            ContraseÃ±a inicial
+                            <input
+                                type="password"
+                                name="password"
+                                value={formData.password}
+                                onChange={handleInputChange}
+                                required
+                            />
+                        </label>
+
+                        <label>
+                            Rol
+                            <select
+                                name="role"
+                                value={formData.role}
+                                onChange={handleInputChange}
+                            >
+                                <option value="ADMIN">Administrador</option>
+                                <option value="OPERADOR">Operador</option>
+                                <option value="LECTOR">Lector</option>
+                            </select>
+                        </label>
+
+                        <button type="submit" disabled={actionLoading}>
+                            {actionLoading ? "Guardando..." : "Crear usuario"}
+                        </button>
+                    </form>
+                </section>
+
+                <section className="card">
+                    <span className="eyebrow">Roles</span>
+                    <h2>Permisos definidos</h2>
+
+                    <div className="role-help">
+                        <p>
+                            <strong>ADMIN:</strong> acceso completo, historial, usuarios,
+                            carga y eliminaciÃ³n de personas.
+                        </p>
+                        <p>
+                            <strong>OPERADOR:</strong> disponibilidad, sucesiÃ³n y publicaciÃ³n
+                            de cartelera.
+                        </p>
+                        <p>
+                            <strong>LECTOR:</strong> solo tiene acceso al display.
+                        </p>
+                    </div>
+                </section>
+            </section>
+
+            <section className="card">
+                <div className="section-header">
+                    <div>
+                        <span className="eyebrow">Usuarios</span>
+                        <h2>Usuarios registrados</h2>
+                    </div>
+
+                    <button type="button" className="ghost-button" onClick={loadUsers}>
+                        Actualizar
+                    </button>
+                </div>
+
+                {loading ? (
+                    <p className="empty-message">Cargando usuarios...</p>
+                ) : users.length === 0 ? (
+                    <p className="empty-message">No hay usuarios registrados.</p>
+                ) : (
+                    <div className="table-wrapper">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>Usuario</th>
+                                <th>Nombre completo</th>
+                                <th>Rol</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                            </thead>
+
+                            <tbody>
+                            {users.map((user) => (
+                                <tr key={user.id}>
+                                    <td>
+                                        <strong>{user.username}</strong>
+                                    </td>
+
+                                    <td>{user.fullName}</td>
+
+                                    <td>
+                                        <select
+                                            value={user.role}
+                                            onChange={(event) =>
+                                                handleChangeRole(user.id, event.target.value)
+                                            }
+                                            disabled={
+                                                actionLoading ||
+                                                user.username === currentUser.username ||
+                                                user.username === "admin"
+                                            }
+                                        >
+                                            <option value="ADMIN">Administrador</option>
+                                            <option value="OPERADOR">Operador</option>
+                                            <option value="LECTOR">Lector</option>
+                                        </select>
+                                    </td>
+
+                                    <td>
+                                        {user.active ? (
+                                            <span className="responsible-badge">Activo</span>
+                                        ) : (
+                                            <span className="not-responsible-badge">Inactivo</span>
+                                        )}
+                                    </td>
+
+                                    <td>
+                                        <div className="actions">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleResetPassword(user)}
+                                                disabled={actionLoading}
+                                            >
+                                                Reset clave
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                className={user.active ? "danger-button" : ""}
+                                                onClick={() => handleToggleStatus(user)}
+                                                disabled={
+                                                    actionLoading ||
+                                                    user.username === currentUser.username ||
+                                                    user.username === "admin"
+                                                }
+                                            >
+                                                {user.active ? "Desactivar" : "Activar"}
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </section>
+        </main>
+    );
+}
+
+export default UsersPage;
+
+
+==================== src/pages/HistoryPage.jsx ====================
+
+import { useEffect, useState } from "react";
+import Topbar from "../components/Topbar.jsx";
+import { getAuditLogs } from "../api/carteleraApi.js";
+import { formatDateTime } from "../utils/formatDateTime.js";
+import { translateAction } from "../utils/translateAction.js";
+
+function HistoryPage({ activeRoute, onNavigate, currentUser, onLogout }) {
+    const [auditLogs, setAuditLogs] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
+    async function loadAuditLogs() {
+        try {
+            setError("");
+            const data = await getAuditLogs();
+            setAuditLogs(data);
+        } catch (err) {
+            setError("No se pudo cargar el historial.");
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    useEffect(() => {
+        loadAuditLogs();
+    }, []);
+
+    return (
+        <main className="page">
+            <Topbar
+                subtitle="Historial de movimientos"
+                activeRoute={activeRoute}
+                onNavigate={onNavigate}
+                currentUser={currentUser}
+                onLogout={onLogout}
+            />
+
+            {error && <div className="error-box">{error}</div>}
+
+            <section className="card">
+                <div className="section-header">
+                    <div>
+                        <span className="eyebrow">AuditorÃ­a</span>
+                        <h2>Historial de movimientos</h2>
+                    </div>
+
+                    <button type="button" className="ghost-button" onClick={loadAuditLogs}>
+                        Actualizar
+                    </button>
+                </div>
+
+                {loading ? (
+                    <p className="empty-message">Cargando historial...</p>
+                ) : auditLogs.length === 0 ? (
+                    <p className="empty-message">TodavÃ­a no hay movimientos registrados.</p>
+                ) : (
+                    <div className="table-wrapper">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>Fecha y hora</th>
+                                <th>Usuario</th>
+                                <th>AcciÃ³n</th>
+                                <th>Entidad</th>
+                                <th>Detalle</th>
+                            </tr>
+                            </thead>
+
+                            <tbody>
+                            {auditLogs.map((log) => (
+                                <tr key={log.id}>
+                                    <td>{formatDateTime(log.createdAt)}</td>
+                                    <td>{log.username}</td>
+                                    <td>
+                                        <span className="action-badge">{translateAction(log.action)}</span>
+                                    </td>
+                                    <td>{log.entityName}</td>
+                                    <td>{log.description}</td>
+                                </tr>
+                            ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </section>
+        </main>
+    );
+}
+
+export default HistoryPage;
+
+
+==================== src/utils/formatDateTime.js ====================
+
+export function formatDateTime(value) {
+    if (!value) {
+        return "-";
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    return date.toLocaleString("es-AR");
+}
+
+
+==================== src/utils/translateAction.js ====================
+
+export function translateAction(action) {
+    const translations = {
+        CREATE_PERSON: "Alta de persona",
+        CHANGE_AVAILABILITY: "Cambio disponibilidad",
+        MOVE_UP: "SubiÃ³ en sucesiÃ³n",
+        MOVE_DOWN: "BajÃ³ en sucesiÃ³n",
+        REMOVE_PERSON: "EliminaciÃ³n",
+        PUBLISH_DISPLAY: "PublicaciÃ³n cartelera",
+        CREATE_USER: "Alta de usuario",
+        UPDATE_USER_ROLE: "Cambio de rol",
+        ENABLE_USER: "ActivaciÃ³n de usuario",
+        DISABLE_USER: "DesactivaciÃ³n de usuario",
+        RESET_PASSWORD: "Reseteo de contraseÃ±a",
+        REGISTER_USER: "Registro de usuario",
+    };
+
+    return translations[action] || action;
+}
