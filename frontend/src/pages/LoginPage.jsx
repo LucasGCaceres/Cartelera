@@ -17,6 +17,10 @@ function LoginPage({ onLoginSuccess }) {
             ...current,
             [name]: value,
         }));
+
+        if (error) {
+            setError("");
+        }
     }
 
     async function handleLoginSubmit(event) {

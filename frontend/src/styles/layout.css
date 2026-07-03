@@ -34,6 +34,32 @@
     flex-wrap: wrap;
 }
 
+.topbar-plant-selector {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+    padding: 8px 12px;
+    color: white;
+    font-weight: 700;
+}
+
+.topbar-plant-selector select {
+    min-width: 160px;
+    border: none;
+    background: transparent;
+    color: white;
+    font-weight: 700;
+    appearance: none;
+}
+
+.topbar-plant-selector select option {
+    color: #102a43;
+    background: white;
+}
+
 .nav-button {
     background: transparent;
     color: white;
@@ -73,6 +99,39 @@
     opacity: 0.9;
 }
 
+.app-shell {
+    min-height: 100vh;
+    padding: 32px;
+    background: #f4f6f8;
+}
+
+.action-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 24px;
+    margin-bottom: 24px;
+}
+
+.alert {
+    padding: 16px 18px;
+    border-radius: 14px;
+    margin-bottom: 24px;
+    font-weight: 700;
+}
+
+.alert-error {
+    background: #fde2e2;
+    color: #9f1c1c;
+    border: 1px solid #f5b5b5;
+}
+
+.alert-warning {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fcd34d;
+}
+
 .user-pill strong {
     font-size: 11px;
     letter-spacing: 0.08em;
@@ -87,6 +146,11 @@
 
 .single-card-grid {
     grid-template-columns: 1fr;
+}
+
+.app-shell > section + section,
+.page > section + section {
+    margin-top: 32px;
 }
 
 .card {
@@ -186,4 +250,45 @@
     .page {
         padding: 16px;
     }
+}
+
+.autocomplete-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.autocomplete-wrapper input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.autocomplete-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    max-height: 280px;
+    overflow-y: auto;
+    background: white;
+    border: 1px solid #cbd5e1;
+    border-radius: 14px;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+    z-index: 20;
+}
+
+.autocomplete-option {
+    width: 100%;
+    text-align: left;
+    padding: 12px 14px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: #102a43;
+    font-weight: 600;
+}
+
+.autocomplete-option:hover,
+.autocomplete-option:focus {
+    background: #f8fafc;
+    outline: none;
 }

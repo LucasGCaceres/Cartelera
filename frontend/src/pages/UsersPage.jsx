@@ -3,9 +3,9 @@ import Topbar from "../components/Topbar.jsx";
 import {
     assignPlantUserRole,
     createGlobalUser,
-    getGlobalUsers,
     getPlantUsers,
     removePlantUserRole,
+    updateGlobalUser,
     updateGlobalUserStatus,
 } from "../api/carteleraApi.js";
 
@@ -17,11 +17,16 @@ function UsersPage({
                        selectedPlantCode,
                        onPlantChange,
                    }) {
+    const selectedPlant = currentUser?.plants?.find(
+        (plant) => plant.code === selectedPlantCode
+    );
+
     const plantCode = selectedPlantCode || currentUser?.plants?.[0]?.code || "ezeiza";
 
-    const [globalUsers, setGlobalUsers] = useState([]);
-    const [plantUsers, setPlantUsers] = useState([]);
+    const plantDisplayName =
+        selectedPlant?.displayName || selectedPlant?.name || plantCode;
 
+    const [plantUsers, setPlantUsers] = useState([]);
     const [formData, setFormData] = useState({
         username: "",
         corporateEmail: "",
@@ -59,55 +64,22 @@ function UsersPage({
         );
     }, [plantUsers]);
 
-    const sortedGlobalUsers = useMemo(() => {
-        return [...globalUsers].sort((a, b) =>
-            (a.fullName || a.username || "").localeCompare(
-                b.fullName || b.username || "",
-                "es",
-                { sensitivity: "base" }
-            )
-        );
-    }, [globalUsers]);
-
     async function loadUsers() {
         try {
             setError("");
 
             if (!canManagePlantUsers) {
                 setPlantUsers([]);
-                setGlobalUsers([]);
                 return;
             }
 
             const plantData = await getPlantUsers(plantCode);
             setPlantUsers(plantData || []);
-
-            if (isPlatformAdmin) {
-                const globalData = await getGlobalUsers();
-                setGlobalUsers(globalData || []);
-            } else {
-                setGlobalUsers([]);
-            }
         } catch (err) {
-            setError(err.message || "No se pudieron cargar los usuarios.");
+            setError(err.message || "No se pudieron cargar los usuarios de la planta.");
             console.error(err);
         } finally {
             setLoading(false);
-        }
-    }
-
-    async function reloadPlantUsers() {
-        try {
-            if (!canManagePlantUsers) {
-                setPlantUsers([]);
-                return;
-            }
-
-            const plantData = await getPlantUsers(plantCode);
-            setPlantUsers(plantData || []);
-        } catch (err) {
-            setError(err.message || "No se pudieron actualizar los usuarios de la planta.");
-            console.error(err);
         }
     }
 
@@ -115,7 +87,7 @@ function UsersPage({
         setLoading(true);
         loadUsers();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [plantCode, isPlatformAdmin, currentPlantRole]);
+    }, [plantCode, currentPlantRole, isPlatformAdmin]);
 
     function handleInputChange(event) {
         const { name, value, type, checked } = event.target;
@@ -175,7 +147,7 @@ function UsersPage({
         }
     }
 
-    async function handleAssignRole(userId, role) {
+    async function handleRoleChange(user, nextRole) {
         if (!canManagePlantUsers) {
             return;
         }
@@ -184,34 +156,33 @@ function UsersPage({
             setActionLoading(true);
             setError("");
 
-            await assignPlantUserRole(plantCode, userId, role);
-            await reloadPlantUsers();
+            if (!nextRole) {
+                await removePlantUserRole(plantCode, user.userId);
+            } else {
+                await assignPlantUserRole(plantCode, user.userId, nextRole);
+            }
+
+            await loadUsers();
         } catch (err) {
-            setError(err.message || "No se pudo asignar el rol en la planta.");
+            setError(err.message || "No se pudo actualizar el rol en la planta.");
             console.error(err);
         } finally {
             setActionLoading(false);
         }
     }
 
-    async function handleRemoveRole(user) {
-        if (!canManagePlantUsers) {
+    async function handlePlatformAdminChange(user, platformAdmin) {
+        if (!isPlatformAdmin) {
             return;
         }
 
-        const roleInPlant = user.roleInPlant || "Sin permisos";
-
-        if (roleInPlant === "Sin permisos") {
+        if (user.username === "admin" && !platformAdmin) {
+            setError("No se puede quitar platformAdmin al administrador principal.");
             return;
         }
 
-        const confirmed = window.confirm(
-            `¿Seguro que querés quitar los permisos de ${
-                user.fullName || user.username
-            } en esta planta?`
-        );
-
-        if (!confirmed) {
+        if (user.username === currentUser.username && !platformAdmin) {
+            setError("No podés quitarte platformAdmin a tu propio usuario.");
             return;
         }
 
@@ -219,10 +190,10 @@ function UsersPage({
             setActionLoading(true);
             setError("");
 
-            await removePlantUserRole(plantCode, user.userId);
-            await reloadPlantUsers();
+            await updateGlobalUser(user.userId, { platformAdmin });
+            await loadUsers();
         } catch (err) {
-            setError(err.message || "No se pudo quitar el rol en la planta.");
+            setError(err.message || "No se pudo cambiar el permiso platformAdmin.");
             console.error(err);
         } finally {
             setActionLoading(false);
@@ -271,7 +242,7 @@ function UsersPage({
     return (
         <div className="page">
             <Topbar
-                subtitle={`Usuarios y permisos — ${plantCode}`}
+                subtitle={`Usuarios y permisos — ${plantDisplayName}`}
                 activeRoute={activeRoute}
                 onNavigate={onNavigate}
                 currentUser={currentUser}
@@ -294,7 +265,7 @@ function UsersPage({
                     <span className="eyebrow">Usuarios globales</span>
                     <h2>Crear usuario</h2>
 
-                    <form onSubmit={handleCreateUser} className="person-form">
+                    <form onSubmit={handleCreateUser} className="person-form compact-user-form">
                         <label>
                             Username
                             <input
@@ -339,7 +310,7 @@ function UsersPage({
                             />
                         </label>
 
-                        <label className="availability-toggle">
+                        <label className="availability-toggle compact-check">
                             <input
                                 name="platformAdmin"
                                 type="checkbox"
@@ -350,7 +321,7 @@ function UsersPage({
                             Platform admin
                         </label>
 
-                        <button type="submit" disabled={actionLoading}>
+                        <button type="submit" className="create-user-button" disabled={actionLoading}>
                             {actionLoading ? "Guardando..." : "Crear usuario"}
                         </button>
                     </form>
@@ -366,13 +337,17 @@ function UsersPage({
                 <div className="section-header">
                     <div>
                         <span className="eyebrow">Permisos por planta</span>
-                        <h2>Usuarios en planta seleccionada</h2>
+                        <h2>Usuarios de {plantCode}</h2>
                     </div>
 
                     <button type="button" onClick={loadUsers} disabled={actionLoading}>
                         Actualizar
                     </button>
                 </div>
+
+                <p className="empty-message">
+                    Esta tabla administra permisos sobre la planta seleccionada. La pertenencia operativa y la sucesión se gestionan desde el panel operativo.
+                </p>
 
                 {loading ? (
                     <p className="empty-message">Cargando usuarios...</p>
@@ -396,6 +371,7 @@ function UsersPage({
                             <tbody>
                             {sortedPlantUsers.map((user) => {
                                 const roleInPlant = user.roleInPlant || "Sin permisos";
+                                const roleValue = roleInPlant === "Sin permisos" ? "" : roleInPlant;
                                 const isCurrentUser = user.username === currentUser.username;
                                 const isPrimaryAdmin = user.username === "admin";
                                 const isGlobalAdmin = Boolean(user.platformAdmin);
@@ -413,66 +389,41 @@ function UsersPage({
                                             )}
                                         </td>
                                         <td>
-                                            {isGlobalAdmin ? (
-                                                <span className="action-badge">Sí</span>
-                                            ) : (
-                                                <span className="not-responsible-badge">No</span>
-                                            )}
+                                            <label className="availability-toggle compact-check">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isGlobalAdmin}
+                                                    onChange={(event) =>
+                                                        handlePlatformAdminChange(user, event.target.checked)
+                                                    }
+                                                    disabled={
+                                                        actionLoading ||
+                                                        !isPlatformAdmin ||
+                                                        isCurrentUser ||
+                                                        isPrimaryAdmin
+                                                    }
+                                                />
+                                                {isGlobalAdmin ? "Sí" : "No"}
+                                            </label>
                                         </td>
                                         <td>
-                        <span
-                            className={
-                                roleInPlant === "ADMIN" || roleInPlant === "OPERADOR"
-                                    ? "action-badge"
-                                    : "not-responsible-badge"
-                            }
-                        >
-                          {roleInPlant}
-                        </span>
+                                            <select
+                                                value={roleValue}
+                                                onChange={(event) => handleRoleChange(user, event.target.value)}
+                                                disabled={
+                                                    actionLoading ||
+                                                    !canManagePlantUsers ||
+                                                    !user.active ||
+                                                    isGlobalAdmin
+                                                }
+                                            >
+                                                <option value="">Sin permisos</option>
+                                                <option value="ADMIN">ADMIN</option>
+                                                <option value="OPERADOR">OPERADOR</option>
+                                            </select>
                                         </td>
                                         <td>
                                             <div className="actions">
-                                                {canManagePlantUsers && (
-                                                    <>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleAssignRole(user.userId, "ADMIN")}
-                                                            disabled={
-                                                                actionLoading ||
-                                                                !user.active ||
-                                                                roleInPlant === "ADMIN"
-                                                            }
-                                                        >
-                                                            ADMIN
-                                                        </button>
-
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleAssignRole(user.userId, "OPERADOR")}
-                                                            disabled={
-                                                                actionLoading ||
-                                                                !user.active ||
-                                                                roleInPlant === "OPERADOR"
-                                                            }
-                                                        >
-                                                            OPERADOR
-                                                        </button>
-
-                                                        <button
-                                                            type="button"
-                                                            className="danger-button"
-                                                            onClick={() => handleRemoveRole(user)}
-                                                            disabled={
-                                                                actionLoading ||
-                                                                roleInPlant === "Sin permisos" ||
-                                                                isGlobalAdmin
-                                                            }
-                                                        >
-                                                            Quitar permisos
-                                                        </button>
-                                                    </>
-                                                )}
-
                                                 {isPlatformAdmin && (
                                                     <button
                                                         type="button"
@@ -493,57 +444,6 @@ function UsersPage({
                     </div>
                 )}
             </section>
-
-            {isPlatformAdmin && (
-                <section className="card">
-                    <span className="eyebrow">Usuarios globales</span>
-                    <h2>Listado global</h2>
-
-                    {sortedGlobalUsers.length === 0 ? (
-                        <p className="empty-message">No hay usuarios globales.</p>
-                    ) : (
-                        <div className="table-wrapper">
-                            <table>
-                                <thead>
-                                <tr>
-                                    <th>Username</th>
-                                    <th>Email</th>
-                                    <th>Nombre</th>
-                                    <th>Estado</th>
-                                    <th>Platform admin</th>
-                                    <th>Creado</th>
-                                </tr>
-                                </thead>
-
-                                <tbody>
-                                {sortedGlobalUsers.map((user) => (
-                                    <tr key={user.id}>
-                                        <td>{user.username}</td>
-                                        <td>{user.corporateEmail || "-"}</td>
-                                        <td>{user.fullName}</td>
-                                        <td>
-                                            {user.active ? (
-                                                <span className="responsible-badge">Activo</span>
-                                            ) : (
-                                                <span className="not-responsible-badge">Inactivo</span>
-                                            )}
-                                        </td>
-                                        <td>
-                                            {user.platformAdmin ? (
-                                                <span className="action-badge">Sí</span>
-                                            ) : (
-                                                <span className="not-responsible-badge">No</span>
-                                            )}
-                                        </td>
-                                        <td>{user.createdAt || "-"}</td>
-                                    </tr>
-                                ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </section>
-            )}
         </div>
     );
 }

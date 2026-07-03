@@ -192,9 +192,18 @@ function App() {
   async function handleLoginSuccess(user) {
     const pathRoute = getRouteFromPath();
     const pathPlantCode = getPlantCodeFromPath();
-    const defaultPlantCode = pathPlantCode || getDefaultPlantCode(user);
 
-    setCurrentUser(user);
+    let fullUser = user;
+
+    try {
+      fullUser = await getCurrentUser();
+    } catch (err) {
+      console.warn("Login succeeded but failed to refresh user profile:", err);
+    }
+
+    const defaultPlantCode = pathPlantCode || getDefaultPlantCode(fullUser);
+
+    setCurrentUser(fullUser);
     setSelectedPlantCode(defaultPlantCode);
 
     if (pathRoute === "app") {
@@ -203,7 +212,7 @@ function App() {
       return;
     }
 
-    if (!user.platformAdmin && (!user.plants || user.plants.length === 0)) {
+    if (!fullUser.platformAdmin && (!fullUser.plants || fullUser.plants.length === 0)) {
       setRoute("display");
       window.history.pushState({}, "", `/display/${defaultPlantCode}`);
       return;

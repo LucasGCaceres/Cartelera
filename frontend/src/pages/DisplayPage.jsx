@@ -117,6 +117,10 @@ function DisplayPage({
     }, []);
 
     useEffect(() => {
+        if (!interactive || !currentUser) {
+            return undefined;
+        }
+
         window.addEventListener("mousemove", showTemporaryControls);
         window.addEventListener("mousedown", showTemporaryControls);
         window.addEventListener("touchstart", showTemporaryControls);

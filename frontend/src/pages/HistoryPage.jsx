@@ -6,6 +6,7 @@ import {
 } from "../api/carteleraApi.js";
 import { formatDateTime } from "../utils/formatDateTime.js";
 import { translateAction } from "../utils/translateAction.js";
+import { translateEntityName } from "../utils/translateEntityName.js";
 
 function HistoryPage({
                          activeRoute,
@@ -15,8 +16,15 @@ function HistoryPage({
                          selectedPlantCode,
                          onPlantChange,
                      }) {
+    const selectedPlant = currentUser?.plants?.find(
+        (plant) => plant.code === selectedPlantCode
+    );
+
     const plantCode =
         selectedPlantCode || currentUser?.plants?.[0]?.code || "ezeiza";
+
+    const plantDisplayName =
+        selectedPlant?.displayName || selectedPlant?.name || plantCode;
 
     const [auditLogs, setAuditLogs] = useState([]);
     const [scope, setScope] = useState("plant");
@@ -41,6 +49,11 @@ function HistoryPage({
         isPlatformAdmin || currentPlantRole === "ADMIN";
 
     const canViewGlobalHistory = isPlatformAdmin;
+
+    function formatAuditDetail(log) {
+        const description = log.description?.trim();
+        return description || "-";
+    }
 
     async function loadAuditLogs() {
         try {
@@ -89,7 +102,7 @@ function HistoryPage({
     return (
         <div className="app-shell">
             <Topbar
-                subtitle={`Historial — ${scope === "global" ? "Global" : plantCode}`}
+                subtitle={`Historial — ${scope === "global" ? "Global" : plantDisplayName}`}
                 activeRoute={activeRoute}
                 onNavigate={onNavigate}
                 currentUser={currentUser}
@@ -147,10 +160,8 @@ function HistoryPage({
                                 <th>Planta</th>
                                 <th>Usuario</th>
                                 <th>Acción</th>
-                                <th>Entidad</th>
+                                <th>Tipo</th>
                                 <th>Detalle</th>
-                                <th>Antes</th>
-                                <th>Después</th>
                             </tr>
                             </thead>
 
@@ -165,10 +176,8 @@ function HistoryPage({
                         {translateAction(log.action)}
                       </span>
                                     </td>
-                                    <td>{log.entityName || "-"}</td>
-                                    <td>{log.description || "-"}</td>
-                                    <td>{log.oldValue || "-"}</td>
-                                    <td>{log.newValue || "-"}</td>
+                                    <td>{translateEntityName(log.entityName)}</td>
+                                    <td>{formatAuditDetail(log)}</td>
                                 </tr>
                             ))}
                             </tbody>

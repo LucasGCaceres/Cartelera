@@ -68,3 +68,20 @@
     font-size: 12px;
     white-space: nowrap;
 }
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 12px;
+    background: #e2e8f0;
+    color: #334155;
+}
+
+.badge-info {
+    background: #dbeafe;
+    color: #1e40af;
+}

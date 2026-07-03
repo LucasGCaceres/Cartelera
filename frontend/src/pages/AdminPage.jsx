@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Topbar from "../components/Topbar.jsx";
 import {
     addMemberToSuccession,
@@ -10,7 +10,6 @@ import {
     moveSuccessionMemberUp,
     publishPlantDisplay,
     removeMemberFromSuccession,
-    removePlantMember,
     updatePlantMemberAvailability,
 } from "../api/carteleraApi.js";
 
@@ -38,6 +37,9 @@ function AdminPage({
         userId: "",
         position: "",
     });
+    const [userSearch, setUserSearch] = useState("");
+    const [showUserDropdown, setShowUserDropdown] = useState(false);
+    const autocompleteRef = useRef(null);
 
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
@@ -60,24 +62,42 @@ function AdminPage({
     const successionMemberIds = useMemo(() => {
         return new Set(
             successionList
-                .map((item) => item.member?.id)
-                .filter((id) => id !== null && id !== undefined)
+                .map((item) => item.member?.userId)
+                .filter((userId) => userId !== null && userId !== undefined)
         );
     }, [successionList]);
 
-    const membersOutsideSuccession = useMemo(() => {
-        return members.filter((member) => !successionMemberIds.has(member.id));
-    }, [members, successionMemberIds]);
+    const formatUserLabel = (user) =>
+        `${user.fullName} — ${user.corporateEmail || user.username}`;
 
-    const availableUsersToAdd = useMemo(() => {
-        const activeMemberUserIds = new Set(
-            members.filter((member) => member.active).map((member) => member.userId)
-        );
-
+    const availableUsers = useMemo(() => {
         return plantUsers
             .filter((user) => user.active)
-            .filter((user) => !activeMemberUserIds.has(user.userId));
-    }, [plantUsers, members]);
+            .filter((user) => !successionMemberIds.has(user.userId));
+    }, [plantUsers, successionMemberIds]);
+
+    const availableUsersToAdd = useMemo(() => {
+        const query = userSearch.trim().toLowerCase();
+
+        return availableUsers.filter((user) => {
+            if (!query) {
+                return true;
+            }
+
+            return [user.fullName, user.corporateEmail, user.username, formatUserLabel(user)]
+                .filter(Boolean)
+                .some((value) => value.toLowerCase().includes(query));
+        });
+    }, [availableUsers, userSearch]);
+
+    const availableUserOptions = useMemo(
+        () =>
+            availableUsersToAdd.map((user) => ({
+                label: formatUserLabel(user),
+                userId: user.userId,
+            })),
+        [availableUsersToAdd]
+    );
 
     const previewUserId = currentResponsible?.userId ?? null;
     const publishedUserId = publishedDisplay?.userId ?? null;
@@ -131,15 +151,45 @@ function AdminPage({
     }
 
     useEffect(() => {
+        function handleClickOutside(event) {
+            if (
+                autocompleteRef.current &&
+                !autocompleteRef.current.contains(event.target)
+            ) {
+                setShowUserDropdown(false);
+            }
+        }
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    useEffect(() => {
         setLoading(true);
         setMemberForm({
             userId: "",
             position: "",
         });
+        setUserSearch("");
+        setShowUserDropdown(false);
 
         loadAllData();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [plantCode]);
+
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (
+                autocompleteRef.current &&
+                !autocompleteRef.current.contains(event.target)
+            ) {
+                setShowUserDropdown(false);
+            }
+        }
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     function handleMemberFormChange(event) {
         const { name, value } = event.target;
@@ -148,6 +198,29 @@ function AdminPage({
             ...current,
             [name]: value,
         }));
+    }
+
+    function handleUserSearchChange(event) {
+        const nextValue = event.target.value;
+        const matchingOption = availableUserOptions.find(
+            (option) => option.label === nextValue
+        );
+
+        setUserSearch(nextValue);
+        setMemberForm((current) => ({
+            ...current,
+            userId: matchingOption ? matchingOption.userId : "",
+        }));
+        setShowUserDropdown(true);
+    }
+
+    function handleSelectUserOption(option) {
+        setUserSearch(option.label);
+        setMemberForm((current) => ({
+            ...current,
+            userId: option.userId,
+        }));
+        setShowUserDropdown(false);
     }
 
     async function handleAddMember(event) {
@@ -162,35 +235,25 @@ function AdminPage({
             setActionLoading(true);
             setError("");
 
-            await addPlantMember(
+            const createdMember = await addPlantMember(
                 plantCode,
                 Number(memberForm.userId),
                 memberForm.position.trim()
             );
+
+            if (createdMember?.id) {
+                await addMemberToSuccession(plantCode, createdMember.id);
+            }
 
             setMemberForm({
                 userId: "",
                 position: "",
             });
 
+            setUserSearch("");
             await loadAllData();
         } catch (err) {
             setError(err.message || "No se pudo agregar el miembro de planta.");
-            console.error(err);
-        } finally {
-            setActionLoading(false);
-        }
-    }
-
-    async function handleAddToSuccession(memberId) {
-        try {
-            setActionLoading(true);
-            setError("");
-
-            await addMemberToSuccession(plantCode, memberId);
-            await reloadStateOnly();
-        } catch (err) {
-            setError(err.message || "No se pudo agregar a la sucesión.");
             console.error(err);
         } finally {
             setActionLoading(false);
@@ -265,29 +328,6 @@ function AdminPage({
         }
     }
 
-    async function handleRemoveMember(member) {
-        const confirmed = window.confirm(
-            `¿Seguro que querés quitar a ${member.fullName} como miembro operativo de esta planta?`
-        );
-
-        if (!confirmed) {
-            return;
-        }
-
-        try {
-            setActionLoading(true);
-            setError("");
-
-            await removePlantMember(plantCode, member.id);
-            await loadAllData();
-        } catch (err) {
-            setError(err.message || "No se pudo quitar el miembro de planta.");
-            console.error(err);
-        } finally {
-            setActionLoading(false);
-        }
-    }
-
     async function handlePublishDisplay() {
         const confirmed = window.confirm(
             "¿Confirmás que querés sincronizar la cartelera con el responsable resultante actual?"
@@ -310,6 +350,20 @@ function AdminPage({
             setActionLoading(false);
         }
     }
+
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (
+                autocompleteRef.current &&
+                !autocompleteRef.current.contains(event.target)
+            ) {
+                setShowUserDropdown(false);
+            }
+        }
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     if (loading) {
         return (
@@ -417,22 +471,42 @@ function AdminPage({
                     <span className="eyebrow">Responsables operativos</span>
                     <h2>Agregar miembro de planta</h2>
 
-                    <form onSubmit={handleAddMember} className="person-form">
+                    <form
+                        onSubmit={handleAddMember}
+                        className="person-form"
+                        autoComplete="off"
+                    >
                         <label>
                             Usuario
-                            <select
-                                name="userId"
-                                value={memberForm.userId}
-                                onChange={handleMemberFormChange}
-                                disabled={actionLoading}
-                            >
-                                <option value="">Seleccionar usuario...</option>
-                                {availableUsersToAdd.map((user) => (
-                                    <option key={user.userId} value={user.userId}>
-                                        {user.fullName} — {user.corporateEmail || user.username}
-                                    </option>
-                                ))}
-                            </select>
+                            <div className="autocomplete-wrapper" ref={autocompleteRef}>
+                                <input
+                                    name="userSearch"
+                                    type="text"
+                                    value={userSearch}
+                                    onChange={handleUserSearchChange}
+                                    onFocus={() => setShowUserDropdown(true)}
+                                    placeholder="Buscar por nombre, email o usuario"
+                                    disabled={actionLoading}
+                                    autoComplete="off"
+                                    autoCorrect="off"
+                                    autoCapitalize="off"
+                                    spellCheck="false"
+                                />
+                                {showUserDropdown && availableUserOptions.length > 0 && (
+                                    <div className="autocomplete-dropdown">
+                                        {availableUserOptions.map((option) => (
+                                            <button
+                                                key={option.userId}
+                                                type="button"
+                                                className="autocomplete-option"
+                                                onClick={() => handleSelectUserOption(option)}
+                                            >
+                                                {option.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </label>
 
                         <label>
@@ -443,6 +517,10 @@ function AdminPage({
                                 onChange={handleMemberFormChange}
                                 placeholder="Ej: Responsable operativo"
                                 disabled={actionLoading}
+                                autoComplete="off"
+                                autoCorrect="off"
+                                autoCapitalize="off"
+                                spellCheck="false"
                             />
                         </label>
 
@@ -451,11 +529,15 @@ function AdminPage({
                         </button>
                     </form>
 
-                    {availableUsersToAdd.length === 0 && (
+                    {availableUsers.length === 0 ? (
                         <p className="empty-message">
                             No hay usuarios activos disponibles para agregar. Creá usuarios desde la pantalla Usuarios.
                         </p>
-                    )}
+                    ) : availableUsersToAdd.length === 0 ? (
+                        <p className="empty-message">
+                            No hay usuarios que coincidan con tu búsqueda.
+                        </p>
+                    ) : null}
                 </section>
             )}
 
@@ -561,61 +643,6 @@ function AdminPage({
                 )}
             </section>
 
-            {canAdminPlant && (
-                <section className="card">
-                    <span className="eyebrow">Miembros fuera de sucesión</span>
-                    <h2>Agregar a la sucesión</h2>
-
-                    {membersOutsideSuccession.length === 0 ? (
-                        <p className="empty-message">No hay miembros activos fuera de la sucesión.</p>
-                    ) : (
-                        <div className="table-wrapper">
-                            <table>
-                                <thead>
-                                <tr>
-                                    <th>Nombre</th>
-                                    <th>Email</th>
-                                    <th>Cargo</th>
-                                    <th>Disponible</th>
-                                    <th>Acciones</th>
-                                </tr>
-                                </thead>
-
-                                <tbody>
-                                {membersOutsideSuccession.map((member) => (
-                                    <tr key={member.id}>
-                                        <td>{member.fullName}</td>
-                                        <td>{member.corporateEmail || "-"}</td>
-                                        <td>{member.position || "-"}</td>
-                                        <td>{member.available ? "Sí" : "No"}</td>
-                                        <td>
-                                            <div className="actions">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleAddToSuccession(member.id)}
-                                                    disabled={actionLoading}
-                                                >
-                                                    Agregar a sucesión
-                                                </button>
-
-                                                <button
-                                                    type="button"
-                                                    className="danger-button"
-                                                    onClick={() => handleRemoveMember(member)}
-                                                    disabled={actionLoading}
-                                                >
-                                                    Quitar miembro
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </section>
-            )}
         </div>
     );
 }
