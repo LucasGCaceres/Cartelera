@@ -31,3 +31,18 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Local data and secrets ###
+.env
+.env.*
+*.env
+*.db
+*.sqlite
+*.sqlite3
+*.pem
+*.key
+*.p12
+*.jks
+*.crt
+*.cer
+cartelera.db
