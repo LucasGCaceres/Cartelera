@@ -172,33 +172,37 @@ function DisplayPage({
         >
             <img className="display-logo" src={DISPLAY_LOGO} alt="Logo Gate Gourmet" />
 
-            {interactive && currentUser && showControls && (
-                <div className="display-session-controls">
-                    {canOpenPanel && (
-                        <button
-                            type="button"
-                            className="display-hidden-logout-button"
-                            onClick={() => onOpenPanel?.(resolvedPlantCode)}
-                        >
-                            Panel
-                        </button>
-                    )}
+            {showControls && (
+                <div className={`display-controls ${showControls ? "visible" : ""}`}>
+                    {interactive && currentUser && (
+                        <>
+                            {canOpenPanel && (
+                                <button
+                                    type="button"
+                                    className="display-hidden-logout-button"
+                                    onClick={() => onOpenPanel?.(resolvedPlantCode)}
+                                >
+                                    Panel
+                                </button>
+                            )}
 
-                    <button
-                        type="button"
-                        className="display-hidden-logout-button"
-                        onClick={onLogout}
-                    >
-                        Salir
-                    </button>
+                            <button
+                                type="button"
+                                className="display-hidden-logout-button"
+                                onClick={onLogout}
+                            >
+                                Salir
+                            </button>
+                        </>
+                    )}
                 </div>
             )}
 
             <section className="display-layout">
                 <div className="display-panel">
                     <aside className="display-date-card" aria-label="Fecha actual">
-                        <span>{dateParts.month}</span>
                         <strong>{dateParts.day}</strong>
+                        <span>{dateParts.month}</span>
                         <span>{dateParts.year}</span>
                     </aside>
 

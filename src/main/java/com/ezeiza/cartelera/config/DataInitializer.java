@@ -54,7 +54,7 @@ public class DataInitializer implements CommandLineRunner {
         );
 
         Plant theProLaundry = createPlantIfNotExists(
-                "the-pro-laundry",
+                "the pro laundry",
                 "The Pro Laundry",
                 "THE PRO LAUNDRY",
                 "Responsable de planta",
