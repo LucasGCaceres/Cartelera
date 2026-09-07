@@ -3,10 +3,14 @@ package com.ezeiza.cartelera.service.audit;
 import com.ezeiza.cartelera.entity.AuditLog;
 import com.ezeiza.cartelera.entity.Plant;
 import com.ezeiza.cartelera.repository.AuditLogRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -99,6 +103,70 @@ public class AuditService {
 
     public List<AuditLog> findLatestGlobal() {
         return auditLogRepository.findTop100ByPlantIsNullOrderByCreatedAtDesc();
+    }
+
+    public Page<AuditLog> searchAuditLogs(String plantCode,
+                                         boolean onlyGlobal,
+                                         String action,
+                                         String username,
+                                         LocalDate from,
+                                         LocalDate to,
+                                         int page,
+                                         int size) {
+        if (onlyGlobal && plantCode != null && !plantCode.trim().isBlank()) {
+            throw new IllegalArgumentException("No se puede combinar plantCode con onlyGlobal.");
+        }
+
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+
+        Sort sort = Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("id")
+        );
+
+        PageRequest pageable = PageRequest.of(safePage, safeSize, sort);
+
+        return auditLogRepository.findAll(
+                buildSpecification(plantCode, onlyGlobal, action, username, from, to),
+                pageable
+        );
+    }
+
+    private org.springframework.data.jpa.domain.Specification<AuditLog> buildSpecification(
+            String plantCode,
+            boolean onlyGlobal,
+            String action,
+            String username,
+            LocalDate from,
+            LocalDate to
+    ) {
+        org.springframework.data.jpa.domain.Specification<AuditLog> specification = null;
+
+        if (onlyGlobal) {
+            specification = org.springframework.data.jpa.domain.Specification.where(
+                    AuditLogSpecifications.onlyGlobal()
+            );
+        } else if (plantCode != null) {
+            specification = org.springframework.data.jpa.domain.Specification.where(
+                    AuditLogSpecifications.plantCode(plantCode)
+            );
+        }
+
+        specification = specification == null
+                ? org.springframework.data.jpa.domain.Specification.where(AuditLogSpecifications.actionEquals(action))
+                : specification.and(AuditLogSpecifications.actionEquals(action));
+        specification = specification == null
+                ? org.springframework.data.jpa.domain.Specification.where(AuditLogSpecifications.usernameContains(username))
+                : specification.and(AuditLogSpecifications.usernameContains(username));
+        specification = specification == null
+                ? org.springframework.data.jpa.domain.Specification.where(AuditLogSpecifications.createdAtGreaterThanOrEqual(from))
+                : specification.and(AuditLogSpecifications.createdAtGreaterThanOrEqual(from));
+        specification = specification == null
+                ? org.springframework.data.jpa.domain.Specification.where(AuditLogSpecifications.createdAtBefore(to))
+                : specification.and(AuditLogSpecifications.createdAtBefore(to));
+
+        return specification;
     }
 
     public String getCurrentUsername() {

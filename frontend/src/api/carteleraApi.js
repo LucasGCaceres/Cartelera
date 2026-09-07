@@ -17,6 +17,45 @@ function encodePathValue(value) {
     return encodeURIComponent(String(value));
 }
 
+function buildAuditQuery(filters = {}) {
+    const params = new URLSearchParams();
+
+    const page = filters.page ?? 0;
+    const size = filters.size ?? 25;
+
+    params.set("page", String(page));
+    params.set("size", String(size));
+
+    const action = filters.action;
+    const username = filters.username;
+    const from = filters.from;
+    const to = filters.to;
+    const plantCode = filters.plantCode;
+
+    if (action != null && String(action).trim() !== "") {
+        params.set("action", String(action).trim());
+    }
+
+    if (username != null && String(username).trim() !== "") {
+        params.set("username", String(username).trim());
+    }
+
+    if (from != null && String(from).trim() !== "") {
+        params.set("from", String(from).trim());
+    }
+
+    if (to != null && String(to).trim() !== "") {
+        params.set("to", String(to).trim());
+    }
+
+    if (plantCode != null && String(plantCode).trim() !== "") {
+        params.set("plantCode", String(plantCode).trim());
+    }
+
+    const queryString = params.toString();
+    return queryString ? `?${queryString}` : "";
+}
+
 function extractErrorMessage(response, text) {
     if (!text) {
         return `Error HTTP ${response.status}`;
@@ -325,12 +364,23 @@ export function moveSuccessionMemberDown(plantCode, memberId) {
 /**
  * Auditoría
  */
-export function getPlantAuditLogs(plantCode) {
-    return request(withTimestamp(`/plants/${encodePathValue(plantCode)}/audit-logs`));
+export function getAllAuditLogs(filters = {}) {
+    const query = buildAuditQuery(filters);
+    return request(withTimestamp(`/audit-logs${query}`));
 }
 
-export function getGlobalAuditLogs() {
-    return request(withTimestamp("/audit-logs/global"));
+export function getPlantAuditLogs(plantCode, filters = {}) {
+    const { action, username, from, to, page, size } = filters;
+    const query = buildAuditQuery({ action, username, from, to, page, size });
+
+    return request(withTimestamp(`/plants/${encodePathValue(plantCode)}/audit-logs${query}`));
+}
+
+export function getGlobalAuditLogs(filters = {}) {
+    const { action, username, from, to, page, size } = filters;
+    const query = buildAuditQuery({ action, username, from, to, page, size });
+
+    return request(withTimestamp(`/audit-logs/global${query}`));
 }
 
 /**

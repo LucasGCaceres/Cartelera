@@ -1,6 +1,2884 @@
-﻿
+﻿BACKEND COMPLETO
+Generado: 2026-07-22 16:37:56
+Directorio: C:\Proyectos\cartelera
 
-==================== pom.xml ====================
+============================================================
+ARCHIVO: .mvn\wrapper\maven-wrapper.properties
+============================================================
+
+wrapperVersion=3.3.4
+distributionType=only-script
+distributionUrl=https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.9.16/apache-maven-3.9.16-bin.zip
+
+
+============================================================
+ARCHIVO: frontend\eslint.config.js
+============================================================
+
+import js from '@eslint/js'
+import globals from 'globals'
+import reactHooks from 'eslint-plugin-react-hooks'
+import reactRefresh from 'eslint-plugin-react-refresh'
+import { defineConfig, globalIgnores } from 'eslint/config'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{js,jsx}'],
+    extends: [
+      js.configs.recommended,
+      reactHooks.configs.flat.recommended,
+      reactRefresh.configs.vite,
+    ],
+    languageOptions: {
+      globals: globals.browser,
+      parserOptions: { ecmaFeatures: { jsx: true } },
+    },
+  },
+])
+
+
+============================================================
+ARCHIVO: frontend\package.json
+============================================================
+
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "eslint": "^10.3.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
+    "vite": "^8.0.12"
+  }
+}
+
+
+============================================================
+ARCHIVO: frontend\README.md
+============================================================
+
+# React + Vite
+
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+
+Currently, two official plugins are available:
+
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+
+## React Compiler
+
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+
+## Expanding the ESLint configuration
+
+If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+
+
+============================================================
+ARCHIVO: frontend\src\api\carteleraApi.js
+============================================================
+
+const API_BASE_URL = "/api";
+
+function buildUrl(endpoint) {
+    if (!endpoint.startsWith("/")) {
+        return `${API_BASE_URL}/${endpoint}`;
+    }
+
+    return `${API_BASE_URL}${endpoint}`;
+}
+
+function withTimestamp(endpoint) {
+    const separator = endpoint.includes("?") ? "&" : "?";
+    return `${endpoint}${separator}ts=${Date.now()}`;
+}
+
+function encodePathValue(value) {
+    return encodeURIComponent(String(value));
+}
+
+function extractErrorMessage(response, text) {
+    if (!text) {
+        return `Error HTTP ${response.status}`;
+    }
+
+    try {
+        const parsed = JSON.parse(text);
+
+        if (parsed.message) {
+            return parsed.message;
+        }
+
+        if (parsed.detail) {
+            return parsed.detail;
+        }
+
+        if (parsed.error) {
+            return parsed.error;
+        }
+
+        if (parsed.title) {
+            return parsed.title;
+        }
+    } catch {
+        // El backend actualmente devuelve muchos errores como texto plano.
+    }
+
+    return text;
+}
+
+async function request(endpoint, options = {}) {
+    const hasBody = options.body !== undefined && options.body !== null;
+    const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
+
+    const headers = {
+        ...(hasBody && !isFormData ? { "Content-Type": "application/json" } : {}),
+        ...(options.headers || {}),
+    };
+
+    const response = await fetch(buildUrl(endpoint), {
+        credentials: "include",
+        cache: "no-store",
+        ...options,
+        headers,
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        const error = new Error(extractErrorMessage(response, errorText));
+        error.status = response.status;
+        error.responseText = errorText;
+        throw error;
+    }
+
+    if (response.status === 204) {
+        return null;
+    }
+
+    const text = await response.text();
+
+    if (!text) {
+        return null;
+    }
+
+    return JSON.parse(text);
+}
+
+/**
+ * Auth
+ */
+export function login(username, password) {
+    return request("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ username, password }),
+    });
+}
+
+export function logout() {
+    return request("/auth/logout", {
+        method: "POST",
+    });
+}
+
+export function getCurrentUser() {
+    return request(withTimestamp("/auth/me"));
+}
+
+/**
+ * Plantas
+ */
+export function getPublicPlants() {
+    return request(withTimestamp("/public/plants"));
+}
+
+export function getMyPlants() {
+    return request(withTimestamp("/plants/my"));
+}
+
+export function getPlants() {
+    return request(withTimestamp("/plants"));
+}
+
+export function createPlant(plantData) {
+    return request("/plants", {
+        method: "POST",
+        body: JSON.stringify(plantData),
+    });
+}
+
+export function updatePlant(plantCode, plantData) {
+    return request(`/plants/${encodePathValue(plantCode)}`, {
+        method: "PATCH",
+        body: JSON.stringify(plantData),
+    });
+}
+
+export function updatePlantStatus(plantCode, active) {
+    return request(`/plants/${encodePathValue(plantCode)}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ active }),
+    });
+}
+
+/**
+ * Estado operativo por planta
+ */
+export function getPlantAdminState(plantCode) {
+    return request(withTimestamp(`/plants/${encodePathValue(plantCode)}/admin/state`));
+}
+
+/**
+ * Display por planta
+ */
+export function publishPlantDisplay(plantCode) {
+    return request(`/plants/${encodePathValue(plantCode)}/display/publish`, {
+        method: "POST",
+    });
+}
+
+export function getPlantPublishedDisplay(plantCode) {
+    return request(withTimestamp(`/plants/${encodePathValue(plantCode)}/display/published`));
+}
+
+export function getPublicPlantPublishedDisplay(plantCode) {
+    return request(
+        withTimestamp(`/public/plants/${encodePathValue(plantCode)}/display/published`)
+    );
+}
+
+/**
+ * Usuarios globales
+ */
+export function getGlobalUsers() {
+    return request(withTimestamp("/users/global"));
+}
+
+export function createGlobalUser(userData) {
+    return request("/users/global", {
+        method: "POST",
+        body: JSON.stringify(userData),
+    });
+}
+
+export function updateGlobalUser(userId, userData) {
+    return request(`/users/global/${encodePathValue(userId)}`, {
+        method: "PATCH",
+        body: JSON.stringify(userData),
+    });
+}
+
+export function updateGlobalUserStatus(userId, active) {
+    return request(`/users/global/${encodePathValue(userId)}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ active }),
+    });
+}
+
+/**
+ * Usuarios / roles por planta
+ */
+export function getPlantUsers(plantCode) {
+    return request(withTimestamp(`/plants/${encodePathValue(plantCode)}/users`));
+}
+
+export function assignPlantUserRole(plantCode, userId, role) {
+    return request(
+        `/plants/${encodePathValue(plantCode)}/users/${encodePathValue(userId)}/role`,
+        {
+            method: "PUT",
+            body: JSON.stringify({ role }),
+        }
+    );
+}
+
+export function removePlantUserRole(plantCode, userId) {
+    return request(
+        `/plants/${encodePathValue(plantCode)}/users/${encodePathValue(userId)}/role`,
+        {
+            method: "DELETE",
+        }
+    );
+}
+
+/**
+ * Miembros de planta
+ */
+export function getPlantMembers(plantCode) {
+    return request(withTimestamp(`/plants/${encodePathValue(plantCode)}/members`));
+}
+
+export function addPlantMember(plantCode, userId, position = "") {
+    return request(`/plants/${encodePathValue(plantCode)}/members`, {
+        method: "POST",
+        body: JSON.stringify({ userId, position }),
+    });
+}
+
+export function addPlantMemberByUserId(plantCode, userId, position = "") {
+    return request(
+        `/plants/${encodePathValue(plantCode)}/members/${encodePathValue(userId)}`,
+        {
+            method: "POST",
+            body: JSON.stringify({ userId, position }),
+        }
+    );
+}
+
+export function updatePlantMember(plantCode, memberId, data) {
+    return request(
+        `/plants/${encodePathValue(plantCode)}/members/${encodePathValue(memberId)}`,
+        {
+            method: "PATCH",
+            body: JSON.stringify(data),
+        }
+    );
+}
+
+export function removePlantMember(plantCode, memberId) {
+    return request(
+        `/plants/${encodePathValue(plantCode)}/members/${encodePathValue(memberId)}`,
+        {
+            method: "DELETE",
+        }
+    );
+}
+
+export function updatePlantMemberAvailability(plantCode, memberId, available) {
+    return request(
+        `/plants/${encodePathValue(plantCode)}/members/${encodePathValue(
+            memberId
+        )}/availability`,
+        {
+            method: "PATCH",
+            body: JSON.stringify({ available }),
+        }
+    );
+}
+
+/**
+ * SucesiÃ³n
+ */
+export function getPlantSuccession(plantCode) {
+    return request(withTimestamp(`/plants/${encodePathValue(plantCode)}/succession`));
+}
+
+export function addMemberToSuccession(plantCode, memberId) {
+    return request(
+        `/plants/${encodePathValue(plantCode)}/succession/${encodePathValue(memberId)}`,
+        {
+            method: "POST",
+        }
+    );
+}
+
+export function removeMemberFromSuccession(plantCode, memberId) {
+    return request(
+        `/plants/${encodePathValue(plantCode)}/succession/${encodePathValue(memberId)}`,
+        {
+            method: "DELETE",
+        }
+    );
+}
+
+export function moveSuccessionMemberUp(plantCode, memberId) {
+    return request(
+        `/plants/${encodePathValue(plantCode)}/succession/${encodePathValue(
+            memberId
+        )}/move-up`,
+        {
+            method: "POST",
+        }
+    );
+}
+
+export function moveSuccessionMemberDown(plantCode, memberId) {
+    return request(
+        `/plants/${encodePathValue(plantCode)}/succession/${encodePathValue(
+            memberId
+        )}/move-down`,
+        {
+            method: "POST",
+        }
+    );
+}
+
+/**
+ * AuditorÃ­a
+ */
+export function getPlantAuditLogs(plantCode) {
+    return request(withTimestamp(`/plants/${encodePathValue(plantCode)}/audit-logs`));
+}
+
+export function getGlobalAuditLogs() {
+    return request(withTimestamp("/audit-logs/global"));
+}
+
+/**
+ * Compatibilidad temporal para que compilen pÃ¡ginas viejas.
+ * Estas funciones se van a eliminar cuando termine la migraciÃ³n completa.
+ */
+export function getAdminState() {
+    throw new Error("Endpoint legacy eliminado. Usar getPlantAdminState(plantCode).");
+}
+
+export function createPerson() {
+    throw new Error("FunciÃ³n legacy eliminada. Usar addPlantMember.");
+}
+
+export function updateAvailability() {
+    throw new Error(
+        "FunciÃ³n legacy eliminada. Usar updatePlantMemberAvailability(plantCode, memberId, available)."
+    );
+}
+
+export function movePersonUp() {
+    throw new Error("FunciÃ³n legacy eliminada. Usar moveSuccessionMemberUp.");
+}
+
+export function movePersonDown() {
+    throw new Error("FunciÃ³n legacy eliminada. Usar moveSuccessionMemberDown.");
+}
+
+export function deletePerson() {
+    throw new Error(
+        "FunciÃ³n legacy eliminada. Usar removePlantMember o removeMemberFromSuccession."
+    );
+}
+
+export function publishDisplay() {
+    throw new Error("Endpoint legacy eliminado. Usar publishPlantDisplay(plantCode).");
+}
+
+export function getPublishedDisplay() {
+    throw new Error(
+        "Endpoint legacy eliminado. Usar getPublicPlantPublishedDisplay(plantCode)."
+    );
+}
+
+export function getAuditLogs() {
+    throw new Error("Endpoint legacy eliminado. Usar getPlantAuditLogs o getGlobalAuditLogs.");
+}
+
+export function getUsers() {
+    throw new Error("Endpoint legacy eliminado. Usar getGlobalUsers o getPlantUsers.");
+}
+
+export function createUser() {
+    throw new Error("Endpoint legacy eliminado. Usar createGlobalUser.");
+}
+
+export function updateUserRole() {
+    throw new Error(
+        "Endpoint legacy eliminado. Usar assignPlantUserRole o removePlantUserRole."
+    );
+}
+
+export function updateUserStatus() {
+    throw new Error("Endpoint legacy eliminado. Usar updateGlobalUserStatus.");
+}
+
+export function resetUserPassword() {
+    throw new Error("Reset de contraseÃ±a eliminado. Futuro: Entra ID.");
+}
+
+export function registerUser() {
+    throw new Error(
+        "Registro pÃºblico eliminado. Futuro: alta desde usuarios globales o Entra ID."
+    );
+}
+
+============================================================
+ARCHIVO: frontend\src\App.jsx
+============================================================
+
+import { useEffect, useMemo, useState } from "react";
+import LoginPage from "./pages/LoginPage.jsx";
+import AdminPage from "./pages/AdminPage.jsx";
+import HistoryPage from "./pages/HistoryPage.jsx";
+import UsersPage from "./pages/UsersPage.jsx";
+import DisplayPage from "./pages/DisplayPage.jsx";
+import { getCurrentUser, logout } from "./api/carteleraApi.js";
+import "./App.css";
+
+const DEFAULT_PLANT_CODE = "ezeiza";
+
+function getRouteFromPath(path = window.location.pathname) {
+  if (path.startsWith("/display/")) {
+    return "display";
+  }
+
+  if (path.startsWith("/app/")) {
+    return "app";
+  }
+
+  if (path.startsWith("/history")) {
+    return "history";
+  }
+
+  if (path.startsWith("/users")) {
+    return "users";
+  }
+
+  return "admin";
+}
+
+function getPlantCodeFromPath(path = window.location.pathname) {
+  const parts = path.split("/").filter(Boolean);
+
+  if ((parts[0] === "display" || parts[0] === "app") && parts[1]) {
+    return parts[1];
+  }
+
+  return null;
+}
+
+function getDefaultPlantCode(user) {
+  if (!user?.plants || user.plants.length === 0) {
+    return DEFAULT_PLANT_CODE;
+  }
+
+  return user.plants[0].code || DEFAULT_PLANT_CODE;
+}
+
+function buildPathForRoute(route, plantCode) {
+  const safePlantCode = plantCode || DEFAULT_PLANT_CODE;
+
+  const pathByRoute = {
+    admin: "/",
+    history: "/history",
+    users: "/users",
+    display: `/display/${safePlantCode}`,
+    app: `/app/${safePlantCode}`,
+  };
+
+  return pathByRoute[route] || "/";
+}
+
+function App() {
+  const [route, setRoute] = useState(() => getRouteFromPath());
+  const [selectedPlantCode, setSelectedPlantCode] = useState(
+      () => getPlantCodeFromPath() || DEFAULT_PLANT_CODE
+  );
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  const canUseAdminArea = useMemo(() => {
+    if (!currentUser) {
+      return false;
+    }
+
+    return Boolean(currentUser.platformAdmin || currentUser.plants?.length > 0);
+  }, [currentUser]);
+
+  const canViewUsers = useMemo(() => {
+    if (!currentUser) {
+      return false;
+    }
+
+    if (currentUser.platformAdmin) {
+      return true;
+    }
+
+    return currentUser.plants?.some((plant) => plant.role === "ADMIN") || false;
+  }, [currentUser]);
+
+  const canViewHistory = canViewUsers;
+
+  useEffect(() => {
+    async function checkSession() {
+      const initialRoute = getRouteFromPath();
+      const pathPlantCode = getPlantCodeFromPath();
+
+      if (pathPlantCode) {
+        setSelectedPlantCode(pathPlantCode);
+      }
+
+      if (initialRoute === "display") {
+        try {
+          const user = await getCurrentUser();
+          setCurrentUser(user);
+        } catch {
+          setCurrentUser(null);
+        } finally {
+          setAuthLoading(false);
+        }
+
+        return;
+      }
+
+      try {
+        const user = await getCurrentUser();
+
+        setCurrentUser(user);
+        setSelectedPlantCode(pathPlantCode || getDefaultPlantCode(user));
+      } catch {
+        setCurrentUser(null);
+        setSelectedPlantCode(pathPlantCode || DEFAULT_PLANT_CODE);
+      } finally {
+        setAuthLoading(false);
+      }
+    }
+
+    checkSession();
+  }, []);
+
+  useEffect(() => {
+    function handlePopState() {
+      const nextRoute = getRouteFromPath();
+      const pathPlantCode = getPlantCodeFromPath();
+
+      setRoute(nextRoute);
+
+      if (pathPlantCode) {
+        setSelectedPlantCode(pathPlantCode);
+      }
+    }
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
+
+  function navigateTo(nextRoute, plantCode = selectedPlantCode) {
+    if (!currentUser && nextRoute !== "display") {
+      return;
+    }
+
+    if (nextRoute === "history" && !canViewHistory) {
+      return;
+    }
+
+    if (nextRoute === "users" && !canViewUsers) {
+      return;
+    }
+
+    const safePlantCode =
+        plantCode || getDefaultPlantCode(currentUser) || DEFAULT_PLANT_CODE;
+
+    const nextPath = buildPathForRoute(nextRoute, safePlantCode);
+
+    setRoute(nextRoute);
+    setSelectedPlantCode(safePlantCode);
+    window.history.pushState({}, "", nextPath);
+  }
+
+  function handlePlantChange(plantCode) {
+    setSelectedPlantCode(plantCode);
+
+    if (route === "display" || route === "app") {
+      const nextPath = buildPathForRoute(route, plantCode);
+      window.history.pushState({}, "", nextPath);
+    }
+  }
+
+  function handleOpenPanel(plantCode) {
+    const safePlantCode =
+        plantCode || selectedPlantCode || getDefaultPlantCode(currentUser);
+
+    setSelectedPlantCode(safePlantCode);
+    setRoute("admin");
+    window.history.pushState({}, "", "/");
+  }
+
+  async function handleLoginSuccess(user) {
+    const pathRoute = getRouteFromPath();
+    const pathPlantCode = getPlantCodeFromPath();
+
+    let fullUser = user;
+
+    try {
+      fullUser = await getCurrentUser();
+    } catch (err) {
+      console.warn("Login succeeded but failed to refresh user profile:", err);
+    }
+
+    const defaultPlantCode = pathPlantCode || getDefaultPlantCode(fullUser);
+
+    setCurrentUser(fullUser);
+    setSelectedPlantCode(defaultPlantCode);
+
+    if (pathRoute === "app") {
+      setRoute("app");
+      window.history.pushState({}, "", `/app/${defaultPlantCode}`);
+      return;
+    }
+
+    if (!fullUser.platformAdmin && (!fullUser.plants || fullUser.plants.length === 0)) {
+      setRoute("display");
+      window.history.pushState({}, "", `/display/${defaultPlantCode}`);
+      return;
+    }
+
+    setRoute("admin");
+    window.history.pushState({}, "", "/");
+  }
+
+  async function handleLogout() {
+    try {
+      await logout();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setCurrentUser(null);
+      setRoute("admin");
+      setSelectedPlantCode(DEFAULT_PLANT_CODE);
+      window.history.pushState({}, "", "/");
+    }
+  }
+
+  if (route === "display") {
+    return (
+        <DisplayPage
+            plantCode={selectedPlantCode || getPlantCodeFromPath() || DEFAULT_PLANT_CODE}
+            currentUser={currentUser}
+            onLogout={handleLogout}
+            interactive={false}
+            canOpenPanel={false}
+            onOpenPanel={handleOpenPanel}
+        />
+    );
+  }
+
+  if (authLoading) {
+    return (
+        <div className="app-shell">
+          <div className="card">
+            <h2>Cargando sesiÃ³n...</h2>
+            <p>Verificando si ya hay un usuario autenticado.</p>
+          </div>
+        </div>
+    );
+  }
+
+  if (!currentUser) {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
+
+  if (route === "app") {
+    return (
+        <DisplayPage
+            plantCode={selectedPlantCode || getPlantCodeFromPath() || getDefaultPlantCode(currentUser)}
+            currentUser={currentUser}
+            onLogout={handleLogout}
+            interactive
+            canOpenPanel={canUseAdminArea}
+            onOpenPanel={handleOpenPanel}
+        />
+    );
+  }
+
+  if (!canUseAdminArea) {
+    return (
+        <div className="app-shell">
+          <div className="card">
+            <h2>Sin permisos administrativos</h2>
+            <p>
+              Tu usuario estÃ¡ autenticado, pero todavÃ­a no tiene permisos asignados
+              en ninguna planta.
+            </p>
+
+            <div className="action-row">
+              <button
+                  type="button"
+                  onClick={() => navigateTo("display", selectedPlantCode || DEFAULT_PLANT_CODE)}
+              >
+                Abrir cartelera pÃºblica
+              </button>
+
+              <button type="button" onClick={handleLogout}>
+                Salir
+              </button>
+            </div>
+          </div>
+        </div>
+    );
+  }
+
+  if (route === "history") {
+    if (!canViewHistory) {
+      return (
+          <div className="app-shell">
+            <div className="card">
+              <h2>Acceso no permitido</h2>
+              <p>No tenÃ©s permisos para ver el historial.</p>
+
+              <div className="action-row">
+                <button type="button" onClick={() => navigateTo("admin")}>
+                  Volver al panel
+                </button>
+              </div>
+            </div>
+          </div>
+      );
+    }
+
+    return (
+        <HistoryPage
+            activeRoute="history"
+            onNavigate={navigateTo}
+            currentUser={currentUser}
+            onLogout={handleLogout}
+            selectedPlantCode={selectedPlantCode || getDefaultPlantCode(currentUser)}
+            onPlantChange={handlePlantChange}
+        />
+    );
+  }
+
+  if (route === "users") {
+    if (!canViewUsers) {
+      return (
+          <div className="app-shell">
+            <div className="card">
+              <h2>Acceso no permitido</h2>
+              <p>No tenÃ©s permisos para administrar usuarios.</p>
+
+              <div className="action-row">
+                <button type="button" onClick={() => navigateTo("admin")}>
+                  Volver al panel
+                </button>
+              </div>
+            </div>
+          </div>
+      );
+    }
+
+    return (
+        <UsersPage
+            activeRoute="users"
+            onNavigate={navigateTo}
+            currentUser={currentUser}
+            onLogout={handleLogout}
+            selectedPlantCode={selectedPlantCode || getDefaultPlantCode(currentUser)}
+            onPlantChange={handlePlantChange}
+        />
+    );
+  }
+
+  return (
+      <AdminPage
+          activeRoute="admin"
+          onNavigate={navigateTo}
+          currentUser={currentUser}
+          onLogout={handleLogout}
+          selectedPlantCode={selectedPlantCode || getDefaultPlantCode(currentUser)}
+          onPlantChange={handlePlantChange}
+      />
+  );
+}
+
+export default App;
+
+============================================================
+ARCHIVO: frontend\src\components\Topbar.jsx
+============================================================
+
+function Topbar({
+                    subtitle,
+                    activeRoute,
+                    onNavigate,
+                    currentUser,
+                    onLogout,
+                    selectedPlantCode,
+                    onPlantChange,
+                }) {
+    const plants = currentUser?.plants || [];
+    const isPlatformAdmin = Boolean(currentUser?.platformAdmin);
+
+    const selectedPlant = plants.find((plant) => plant.code === selectedPlantCode);
+    const selectedRole = selectedPlant?.role || (isPlatformAdmin ? "ADMIN" : "Sin permisos");
+
+    const canViewUsers =
+        isPlatformAdmin || plants.some((plant) => plant.role === "ADMIN");
+
+    const canViewHistory = canViewUsers;
+
+    const effectivePlantCode = selectedPlantCode || plants[0]?.code || "ezeiza";
+
+    function handlePlantChange(event) {
+        onPlantChange?.(event.target.value);
+    }
+
+    function openDisplay() {
+        window.open(`/display/${effectivePlantCode}`, "_blank", "noopener,noreferrer");
+    }
+
+    return (
+        <header className="topbar">
+            <div>
+                <h1>Cartelera responsable de planta</h1>
+                {subtitle && <p>{subtitle}</p>}
+            </div>
+
+            <div className="topbar-actions">
+                {plants.length > 0 && (
+                    <label className="topbar-plant-selector">
+                        Planta{" "}
+                        <select value={effectivePlantCode} onChange={handlePlantChange}>
+                            {plants.map((plant) => (
+                                <option key={plant.code} value={plant.code}>
+                                    {plant.displayName || plant.name || plant.code}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                )}
+
+                <button
+                    type="button"
+                    className={`nav-button ${activeRoute === "admin" ? "active" : ""}`}
+                    onClick={() => onNavigate("admin")}
+                >
+                    Panel
+                </button>
+
+                {canViewHistory && (
+                    <button
+                        type="button"
+                        className={`nav-button ${activeRoute === "history" ? "active" : ""}`}
+                        onClick={() => onNavigate("history")}
+                    >
+                        Historial
+                    </button>
+                )}
+
+                {canViewUsers && (
+                    <button
+                        type="button"
+                        className={`nav-button ${activeRoute === "users" ? "active" : ""}`}
+                        onClick={() => onNavigate("users")}
+                    >
+                        Usuarios
+                    </button>
+                )}
+
+                <button
+                    type="button"
+                    className="nav-button display-nav-button"
+                    onClick={openDisplay}
+                >
+                    Abrir cartelera
+                </button>
+            </div>
+
+            <div className="user-pill">
+                <span>{currentUser?.fullName || currentUser?.username || "Usuario"}</span>
+                <strong>{isPlatformAdmin ? "PLATFORM ADMIN" : selectedRole}</strong>
+            </div>
+
+            <button
+                type="button"
+                className="nav-button logout-button"
+                onClick={onLogout}
+            >
+                Salir
+            </button>
+        </header>
+    );
+}
+
+export default Topbar;
+
+============================================================
+ARCHIVO: frontend\src\main.jsx
+============================================================
+
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+
+import "./styles/global.css";
+import "./styles/layout.css";
+import "./styles/forms.css";
+import "./styles/tables.css";
+import "./styles/badges.css";
+
+import App from './App.jsx'
+
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)
+
+
+============================================================
+ARCHIVO: frontend\src\pages\AdminPage.jsx
+============================================================
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import Topbar from "../components/Topbar.jsx";
+import {
+    addMemberToSuccession,
+    addPlantMember,
+    getPlantAdminState,
+    getPlantMembers,
+    getPlantUsers,
+    moveSuccessionMemberDown,
+    moveSuccessionMemberUp,
+    publishPlantDisplay,
+    removeMemberFromSuccession,
+    updatePlantMemberAvailability,
+} from "../api/carteleraApi.js";
+
+const EMPTY_ADMIN_STATE = {
+    plant: null,
+    currentUserRole: null,
+    currentResponsible: null,
+    successionList: [],
+    publishedDisplay: null,
+};
+
+function AdminPage({
+                       activeRoute,
+                       onNavigate,
+                       currentUser,
+                       onLogout,
+                       selectedPlantCode,
+                       onPlantChange,
+                   }) {
+    const [adminState, setAdminState] = useState(EMPTY_ADMIN_STATE);
+    const [plantUsers, setPlantUsers] = useState([]);
+    const [members, setMembers] = useState([]);
+
+    const [memberForm, setMemberForm] = useState({
+        userId: "",
+        position: "",
+    });
+    const [userSearch, setUserSearch] = useState("");
+    const [showUserDropdown, setShowUserDropdown] = useState(false);
+    const autocompleteRef = useRef(null);
+
+    const [loading, setLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState(false);
+    const [error, setError] = useState("");
+
+    const plantCode = selectedPlantCode || currentUser?.plants?.[0]?.code || "ezeiza";
+
+    const currentUserRole = adminState.currentUserRole;
+    const isPlatformAdmin = Boolean(currentUser?.platformAdmin);
+    const isPlantAdmin = isPlatformAdmin || currentUserRole === "ADMIN";
+    const isPlantOperator = currentUserRole === "OPERADOR";
+
+    const canAdminPlant = isPlantAdmin;
+    const canOperatePlant = isPlantAdmin || isPlantOperator;
+
+    const successionList = adminState.successionList || [];
+    const currentResponsible = adminState.currentResponsible;
+    const publishedDisplay = adminState.publishedDisplay;
+
+    const successionMemberIds = useMemo(() => {
+        return new Set(
+            successionList
+                .map((item) => item.member?.userId)
+                .filter((userId) => userId !== null && userId !== undefined)
+        );
+    }, [successionList]);
+
+    const formatUserLabel = (user) =>
+        `${user.fullName} â€” ${user.corporateEmail || user.username}`;
+
+    const availableUsers = useMemo(() => {
+        return plantUsers
+            .filter((user) => user.active)
+            .filter((user) => !successionMemberIds.has(user.userId));
+    }, [plantUsers, successionMemberIds]);
+
+    const availableUsersToAdd = useMemo(() => {
+        const query = userSearch.trim().toLowerCase();
+
+        return availableUsers.filter((user) => {
+            if (!query) {
+                return true;
+            }
+
+            return [user.fullName, user.corporateEmail, user.username, formatUserLabel(user)]
+                .filter(Boolean)
+                .some((value) => value.toLowerCase().includes(query));
+        });
+    }, [availableUsers, userSearch]);
+
+    const availableUserOptions = useMemo(
+        () =>
+            availableUsersToAdd.map((user) => ({
+                label: formatUserLabel(user),
+                userId: user.userId,
+            })),
+        [availableUsersToAdd]
+    );
+
+    const previewUserId = currentResponsible?.userId ?? null;
+    const publishedUserId = publishedDisplay?.userId ?? null;
+
+    const hasInitialPublication = Boolean(publishedDisplay);
+    const hasPendingChanges = hasInitialPublication && previewUserId !== publishedUserId;
+    const canPublish = canOperatePlant && (!hasInitialPublication || hasPendingChanges);
+
+    async function loadAllData() {
+        if (!plantCode) {
+            return;
+        }
+
+        try {
+            setError("");
+
+            const stateData = await getPlantAdminState(plantCode);
+            const normalizedState = stateData || EMPTY_ADMIN_STATE;
+            const roleFromState = normalizedState.currentUserRole;
+            const canLoadPlantUsers = isPlatformAdmin || roleFromState === "ADMIN";
+
+            const [membersData, usersData] = await Promise.all([
+                getPlantMembers(plantCode),
+                canLoadPlantUsers ? getPlantUsers(plantCode) : Promise.resolve([]),
+            ]);
+
+            setAdminState(normalizedState);
+            setMembers(membersData || []);
+            setPlantUsers(usersData || []);
+        } catch (err) {
+            setError(err.message || "No se pudo cargar el estado del panel.");
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function reloadStateOnly() {
+        try {
+            const [stateData, membersData] = await Promise.all([
+                getPlantAdminState(plantCode),
+                getPlantMembers(plantCode),
+            ]);
+
+            setAdminState(stateData || EMPTY_ADMIN_STATE);
+            setMembers(membersData || []);
+        } catch (err) {
+            setError(err.message || "No se pudo actualizar el panel.");
+            console.error(err);
+        }
+    }
+
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (
+                autocompleteRef.current &&
+                !autocompleteRef.current.contains(event.target)
+            ) {
+                setShowUserDropdown(false);
+            }
+        }
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    useEffect(() => {
+        setLoading(true);
+        setMemberForm({
+            userId: "",
+            position: "",
+        });
+        setUserSearch("");
+        setShowUserDropdown(false);
+
+        loadAllData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [plantCode]);
+
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (
+                autocompleteRef.current &&
+                !autocompleteRef.current.contains(event.target)
+            ) {
+                setShowUserDropdown(false);
+            }
+        }
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    function handleMemberFormChange(event) {
+        const { name, value } = event.target;
+
+        setMemberForm((current) => ({
+            ...current,
+            [name]: value,
+        }));
+    }
+
+    function handleUserSearchChange(event) {
+        const nextValue = event.target.value;
+        const matchingOption = availableUserOptions.find(
+            (option) => option.label === nextValue
+        );
+
+        setUserSearch(nextValue);
+        setMemberForm((current) => ({
+            ...current,
+            userId: matchingOption ? matchingOption.userId : "",
+        }));
+        setShowUserDropdown(true);
+    }
+
+    function handleSelectUserOption(option) {
+        setUserSearch(option.label);
+        setMemberForm((current) => ({
+            ...current,
+            userId: option.userId,
+        }));
+        setShowUserDropdown(false);
+    }
+
+    async function handleAddMember(event) {
+        event.preventDefault();
+
+        if (!memberForm.userId) {
+            setError("SeleccionÃ¡ un usuario para agregar como responsable operativo.");
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setError("");
+
+            const createdMember = await addPlantMember(
+                plantCode,
+                Number(memberForm.userId),
+                memberForm.position.trim()
+            );
+
+            if (createdMember?.id) {
+                await addMemberToSuccession(plantCode, createdMember.id);
+            }
+
+            setMemberForm({
+                userId: "",
+                position: "",
+            });
+
+            setUserSearch("");
+            await loadAllData();
+        } catch (err) {
+            setError(err.message || "No se pudo agregar el miembro de planta.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleAvailabilityChange(memberId, available) {
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await updatePlantMemberAvailability(plantCode, memberId, available);
+            await reloadStateOnly();
+        } catch (err) {
+            setError(err.message || "No se pudo actualizar la disponibilidad.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleMoveUp(memberId) {
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await moveSuccessionMemberUp(plantCode, memberId);
+            await reloadStateOnly();
+        } catch (err) {
+            setError(err.message || "No se pudo subir en la lista.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleMoveDown(memberId) {
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await moveSuccessionMemberDown(plantCode, memberId);
+            await reloadStateOnly();
+        } catch (err) {
+            setError(err.message || "No se pudo bajar en la lista.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleRemoveFromSuccession(member) {
+        const confirmed = window.confirm(
+            `Â¿Seguro que querÃ©s quitar a ${member.fullName} de la sucesiÃ³n?`
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await removeMemberFromSuccession(plantCode, member.id);
+            await reloadStateOnly();
+        } catch (err) {
+            setError(err.message || "No se pudo quitar de la sucesiÃ³n.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handlePublishDisplay() {
+        const confirmed = window.confirm(
+            "Â¿ConfirmÃ¡s que querÃ©s sincronizar la cartelera con el responsable resultante actual?"
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await publishPlantDisplay(plantCode);
+            await reloadStateOnly();
+        } catch (err) {
+            setError(err.message || "No se pudo sincronizar la cartelera.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (
+                autocompleteRef.current &&
+                !autocompleteRef.current.contains(event.target)
+            ) {
+                setShowUserDropdown(false);
+            }
+        }
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="page">
+                <div className="card">Cargando panel...</div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="page">
+            <Topbar
+                subtitle={adminState.plant?.displayName || "Panel operativo"}
+                activeRoute={activeRoute}
+                onNavigate={onNavigate}
+                currentUser={currentUser}
+                onLogout={onLogout}
+                selectedPlantCode={plantCode}
+                onPlantChange={onPlantChange}
+            />
+
+            {error && <div className="error-box">{error}</div>}
+
+            {!canOperatePlant && (
+                <div className="pending-box warning-pending">
+                    <strong>No tenÃ©s permisos operativos en esta planta.</strong>
+                    <span>Pedile a un administrador que te asigne un rol en esta planta.</span>
+                </div>
+            )}
+
+            {!hasInitialPublication && (
+                <div className="pending-box warning-pending">
+                    <strong>Cartelera sin publicaciÃ³n inicial.</strong>
+                    <span>TodavÃ­a no se sincronizÃ³ la cartelera de esta planta.</span>
+                </div>
+            )}
+
+            {hasPendingChanges && (
+                <div className="pending-box">
+                    <strong>Hay cambios pendientes sin publicar.</strong>
+                    <span>La vista previa actual no coincide con la cartelera publicada.</span>
+                </div>
+            )}
+
+            <section className="grid">
+                <div className="card responsible-card">
+                    <span className="eyebrow">Vista previa</span>
+                    <h2>Responsable resultante</h2>
+
+                    {currentResponsible ? (
+                        <>
+                            <p className="preview-name">{currentResponsible.fullName}</p>
+                            <p>{currentResponsible.position || "Sin cargo informado"}</p>
+                        </>
+                    ) : (
+                        <>
+                            <p className="preview-name">No hay responsable disponible</p>
+                            <p>MarcÃ¡ al menos un miembro de la sucesiÃ³n como disponible.</p>
+                        </>
+                    )}
+                </div>
+
+                <div className="card">
+                    <span className="eyebrow">Cartelera publicada</span>
+                    <h2>Estado publicado</h2>
+
+                    {publishedDisplay ? (
+                        publishedDisplay.responsibleName ? (
+                            <div className="publish-box">
+                                <strong>{publishedDisplay.responsibleName}</strong>
+                                <span>{publishedDisplay.responsiblePosition || "Sin cargo informado"}</span>
+                            </div>
+                        ) : (
+                            <div className="publish-box">
+                                <strong>Sin responsable publicado</strong>
+                                <span>La Ãºltima publicaciÃ³n no tenÃ­a responsable disponible.</span>
+                            </div>
+                        )
+                    ) : (
+                        <div className="publish-box">
+                            <strong>Sin publicaciÃ³n inicial</strong>
+                            <span>PresionÃ¡ sincronizar para publicar por primera vez.</span>
+                        </div>
+                    )}
+
+                    <button
+                        type="button"
+                        className="publish-button"
+                        onClick={handlePublishDisplay}
+                        disabled={actionLoading || !canPublish}
+                    >
+                        {actionLoading
+                            ? "Sincronizando..."
+                            : !hasInitialPublication
+                                ? "Publicar cartelera"
+                                : hasPendingChanges
+                                    ? "Sincronizar cartelera"
+                                    : "Cartelera actualizada"}
+                    </button>
+                </div>
+            </section>
+
+            {canAdminPlant && (
+                <section className="card">
+                    <span className="eyebrow">Responsables operativos</span>
+                    <h2>Agregar miembro de planta</h2>
+
+                    <form
+                        onSubmit={handleAddMember}
+                        className="person-form"
+                        autoComplete="off"
+                    >
+                        <label>
+                            Usuario
+                            <div className="autocomplete-wrapper" ref={autocompleteRef}>
+                                <input
+                                    name="userSearch"
+                                    type="text"
+                                    value={userSearch}
+                                    onChange={handleUserSearchChange}
+                                    onFocus={() => setShowUserDropdown(true)}
+                                    placeholder="Buscar por nombre, email o usuario"
+                                    disabled={actionLoading}
+                                    autoComplete="off"
+                                    autoCorrect="off"
+                                    autoCapitalize="off"
+                                    spellCheck="false"
+                                />
+                                {showUserDropdown && availableUserOptions.length > 0 && (
+                                    <div className="autocomplete-dropdown">
+                                        {availableUserOptions.map((option) => (
+                                            <button
+                                                key={option.userId}
+                                                type="button"
+                                                className="autocomplete-option"
+                                                onClick={() => handleSelectUserOption(option)}
+                                            >
+                                                {option.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </label>
+
+                        <label>
+                            Cargo en esta planta
+                            <input
+                                name="position"
+                                value={memberForm.position}
+                                onChange={handleMemberFormChange}
+                                placeholder="Ej: Responsable operativo"
+                                disabled={actionLoading}
+                                autoComplete="off"
+                                autoCorrect="off"
+                                autoCapitalize="off"
+                                spellCheck="false"
+                            />
+                        </label>
+
+                        <button type="submit" disabled={actionLoading || !memberForm.userId}>
+                            {actionLoading ? "Guardando..." : "Agregar miembro"}
+                        </button>
+                    </form>
+
+                    {availableUsers.length === 0 ? (
+                        <p className="empty-message">
+                            No hay usuarios activos disponibles para agregar. CreÃ¡ usuarios desde la pantalla Usuarios.
+                        </p>
+                    ) : availableUsersToAdd.length === 0 ? (
+                        <p className="empty-message">
+                            No hay usuarios que coincidan con tu bÃºsqueda.
+                        </p>
+                    ) : null}
+                </section>
+            )}
+
+            <section className="card">
+                <div className="section-header">
+                    <div>
+                        <span className="eyebrow">SucesiÃ³n</span>
+                        <h2>Lista de sucesiÃ³n y disponibilidad</h2>
+                    </div>
+                </div>
+
+                {successionList.length === 0 ? (
+                    <p className="empty-message">TodavÃ­a no hay miembros en la sucesiÃ³n de esta planta.</p>
+                ) : (
+                    <div className="table-wrapper">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>Orden</th>
+                                <th>Nombre</th>
+                                <th>Email</th>
+                                <th>Cargo</th>
+                                <th>Disponible</th>
+                                <th>Responsable</th>
+                                <th>Acciones</th>
+                            </tr>
+                            </thead>
+
+                            <tbody>
+                            {successionList.map((item) => {
+                                const member = item.member;
+
+                                if (!member) {
+                                    return null;
+                                }
+
+                                return (
+                                    <tr key={item.id}>
+                                        <td>{item.orderNumber}</td>
+                                        <td>{member.fullName}</td>
+                                        <td>{member.corporateEmail || "-"}</td>
+                                        <td>{member.position || "-"}</td>
+                                        <td>
+                                            <label className="availability-toggle">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={Boolean(member.available)}
+                                                    onChange={(event) =>
+                                                        handleAvailabilityChange(member.id, event.target.checked)
+                                                    }
+                                                    disabled={actionLoading || !canOperatePlant}
+                                                />
+                                                {member.available ? "SÃ­" : "No"}
+                                            </label>
+                                        </td>
+                                        <td>
+                                            {item.currentResponsible ? (
+                                                <span className="responsible-badge">SÃ­</span>
+                                            ) : (
+                                                <span className="not-responsible-badge">No</span>
+                                            )}
+                                        </td>
+                                        <td>
+                                            <div className="actions">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleMoveUp(member.id)}
+                                                    disabled={actionLoading || item.orderNumber === 1 || !canOperatePlant}
+                                                >
+                                                    Subir
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleMoveDown(member.id)}
+                                                    disabled={
+                                                        actionLoading ||
+                                                        item.orderNumber === successionList.length ||
+                                                        !canOperatePlant
+                                                    }
+                                                >
+                                                    Bajar
+                                                </button>
+
+                                                {canAdminPlant && (
+                                                    <button
+                                                        type="button"
+                                                        className="danger-button"
+                                                        onClick={() => handleRemoveFromSuccession(member)}
+                                                        disabled={actionLoading}
+                                                    >
+                                                        Quitar
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </section>
+
+        </div>
+    );
+}
+
+export default AdminPage;
+
+============================================================
+ARCHIVO: frontend\src\pages\DisplayPage.jsx
+============================================================
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { getPublicPlantPublishedDisplay } from "../api/carteleraApi.js";
+import "../styles/display.css";
+
+const DISPLAY_BACKGROUNDS = [
+    "/assets/display/Fondo1.jpg",
+    "/assets/display/Fondo3.jpg",
+    "/assets/display/Fondo4.jpg",
+];
+
+const DISPLAY_LOGO = "/assets/display/Logo_Gate.png";
+const DEFAULT_PLANT_CODE = "ezeiza";
+
+function getPlantCodeFromPath() {
+    const path = window.location.pathname;
+    const parts = path.split("/").filter(Boolean);
+
+    if ((parts[0] === "display" || parts[0] === "app") && parts[1]) {
+        return parts[1];
+    }
+
+    return null;
+}
+
+function getPlantNameFallback(plantCode) {
+    return String(plantCode || DEFAULT_PLANT_CODE)
+        .replaceAll("-", " ")
+        .toUpperCase();
+}
+
+function DisplayPage({
+                         plantCode,
+                         currentUser,
+                         onLogout,
+                         interactive = false,
+                         canOpenPanel = false,
+                         onOpenPanel,
+                     }) {
+    const resolvedPlantCode = plantCode || getPlantCodeFromPath() || DEFAULT_PLANT_CODE;
+
+    const [publishedDisplay, setPublishedDisplay] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [connectionError, setConnectionError] = useState(false);
+    const [now, setNow] = useState(new Date());
+    const [backgroundIndex, setBackgroundIndex] = useState(0);
+    const [showControls, setShowControls] = useState(false);
+
+    const controlsTimeoutRef = useRef(null);
+
+    async function loadPublishedDisplay() {
+        try {
+            const data = await getPublicPlantPublishedDisplay(resolvedPlantCode);
+            setPublishedDisplay(data);
+            setConnectionError(false);
+        } catch (err) {
+            console.error(err);
+            setConnectionError(true);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    function showTemporaryControls() {
+        if (!interactive || !currentUser) {
+            return;
+        }
+
+        setShowControls(true);
+
+        if (controlsTimeoutRef.current) {
+            window.clearTimeout(controlsTimeoutRef.current);
+        }
+
+        controlsTimeoutRef.current = window.setTimeout(() => {
+            setShowControls(false);
+        }, 5000);
+    }
+
+    useEffect(() => {
+        DISPLAY_BACKGROUNDS.forEach((src) => {
+            const image = new Image();
+            image.src = src;
+        });
+    }, []);
+
+    useEffect(() => {
+        setLoading(true);
+        loadPublishedDisplay();
+
+        const displayIntervalId = window.setInterval(() => {
+            loadPublishedDisplay();
+        }, 5000);
+
+        return () => window.clearInterval(displayIntervalId);
+    }, [resolvedPlantCode]);
+
+    useEffect(() => {
+        const clockIntervalId = window.setInterval(() => {
+            setNow(new Date());
+        }, 1000);
+
+        return () => window.clearInterval(clockIntervalId);
+    }, []);
+
+    useEffect(() => {
+        const backgroundIntervalId = window.setInterval(() => {
+            setBackgroundIndex((current) => {
+                if (DISPLAY_BACKGROUNDS.length <= 1) {
+                    return 0;
+                }
+
+                return (current + 1) % DISPLAY_BACKGROUNDS.length;
+            });
+        }, 30000);
+
+        return () => window.clearInterval(backgroundIntervalId);
+    }, []);
+
+    useEffect(() => {
+        if (!interactive || !currentUser) {
+            return undefined;
+        }
+
+        window.addEventListener("mousemove", showTemporaryControls);
+        window.addEventListener("mousedown", showTemporaryControls);
+        window.addEventListener("touchstart", showTemporaryControls);
+        window.addEventListener("keydown", showTemporaryControls);
+
+        return () => {
+            window.removeEventListener("mousemove", showTemporaryControls);
+            window.removeEventListener("mousedown", showTemporaryControls);
+            window.removeEventListener("touchstart", showTemporaryControls);
+            window.removeEventListener("keydown", showTemporaryControls);
+
+            if (controlsTimeoutRef.current) {
+                window.clearTimeout(controlsTimeoutRef.current);
+            }
+        };
+    }, [interactive, currentUser]);
+
+    const dateParts = useMemo(() => {
+        const month = now
+            .toLocaleDateString("es-AR", { month: "short" })
+            .replace(".", "");
+
+        return {
+            month: month.charAt(0).toUpperCase() + month.slice(1),
+            day: now.toLocaleDateString("es-AR", { day: "2-digit" }),
+            year: now.toLocaleDateString("es-AR", { year: "numeric" }),
+            time: now.toLocaleTimeString("es-AR", {
+                hour: "2-digit",
+                minute: "2-digit",
+            }),
+        };
+    }, [now]);
+
+    const backgroundImage = DISPLAY_BACKGROUNDS[backgroundIndex];
+    const responsibleName = publishedDisplay?.responsibleName;
+    const responsiblePosition =
+        publishedDisplay?.responsiblePosition ||
+        publishedDisplay?.mainTitle ||
+        "Responsable de planta";
+    const plantName = publishedDisplay?.plantName || getPlantNameFallback(resolvedPlantCode);
+
+    return (
+        <main
+            className="display-page"
+            style={{ backgroundImage: `url(${backgroundImage})` }}
+            onMouseMove={showTemporaryControls}
+            onMouseDown={showTemporaryControls}
+            onTouchStart={showTemporaryControls}
+        >
+            <img className="display-logo" src={DISPLAY_LOGO} alt="Logo Gate Gourmet" />
+
+            {interactive && currentUser && showControls && (
+                <div className="display-session-controls">
+                    {canOpenPanel && (
+                        <button
+                            type="button"
+                            className="display-hidden-logout-button"
+                            onClick={() => onOpenPanel?.(resolvedPlantCode)}
+                        >
+                            Panel
+                        </button>
+                    )}
+
+                    <button
+                        type="button"
+                        className="display-hidden-logout-button"
+                        onClick={onLogout}
+                    >
+                        Salir
+                    </button>
+                </div>
+            )}
+
+            <section className="display-layout">
+                <div className="display-panel">
+                    <aside className="display-date-card" aria-label="Fecha actual">
+                        <span>{dateParts.month}</span>
+                        <strong>{dateParts.day}</strong>
+                        <span>{dateParts.year}</span>
+                    </aside>
+
+                    <section className="display-responsible-card">
+                        <div className="display-plant-name">{plantName}</div>
+
+                        {connectionError && (
+                            <div className="display-connection-warning">
+                                Reconectando con el servidor...
+                            </div>
+                        )}
+
+                        {loading ? (
+                            <>
+                                <h1>Cargando...</h1>
+                                <p>Obteniendo cartelera publicada</p>
+                            </>
+                        ) : responsibleName ? (
+                            <>
+                                <h1>{responsibleName}</h1>
+                                <p>{responsiblePosition}</p>
+                            </>
+                        ) : (
+                            <>
+                                <h1>No hay responsable disponible</h1>
+                                <p>{publishedDisplay?.mainTitle || "Responsable de planta"}</p>
+                            </>
+                        )}
+                    </section>
+                </div>
+            </section>
+
+            <section className="display-clock" aria-label="Hora actual">
+                {dateParts.time}
+            </section>
+        </main>
+    );
+}
+
+export default DisplayPage;
+
+============================================================
+ARCHIVO: frontend\src\pages\HistoryPage.jsx
+============================================================
+
+import { useEffect, useMemo, useState } from "react";
+import Topbar from "../components/Topbar.jsx";
+import {
+    getGlobalAuditLogs,
+    getPlantAuditLogs,
+} from "../api/carteleraApi.js";
+import { formatDateTime } from "../utils/formatDateTime.js";
+import { translateAction } from "../utils/translateAction.js";
+import { translateEntityName } from "../utils/translateEntityName.js";
+
+function HistoryPage({
+                         activeRoute,
+                         onNavigate,
+                         currentUser,
+                         onLogout,
+                         selectedPlantCode,
+                         onPlantChange,
+                     }) {
+    const selectedPlant = currentUser?.plants?.find(
+        (plant) => plant.code === selectedPlantCode
+    );
+
+    const plantCode =
+        selectedPlantCode || currentUser?.plants?.[0]?.code || "ezeiza";
+
+    const plantDisplayName =
+        selectedPlant?.displayName || selectedPlant?.name || plantCode;
+
+    const [auditLogs, setAuditLogs] = useState([]);
+    const [scope, setScope] = useState("plant");
+    const [loading, setLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState(false);
+    const [error, setError] = useState("");
+
+    const isPlatformAdmin = Boolean(currentUser?.platformAdmin);
+
+    const currentPlantRole = useMemo(() => {
+        if (isPlatformAdmin) {
+            return "ADMIN";
+        }
+
+        return (
+            currentUser?.plants?.find((plant) => plant.code === plantCode)?.role ||
+            "Sin permisos"
+        );
+    }, [currentUser, isPlatformAdmin, plantCode]);
+
+    const canViewPlantHistory =
+        isPlatformAdmin || currentPlantRole === "ADMIN";
+
+    const canViewGlobalHistory = isPlatformAdmin;
+
+    function formatAuditDetail(log) {
+        const description = log.description?.trim();
+        return description || "-";
+    }
+
+    async function loadAuditLogs() {
+        try {
+            setError("");
+            setLoading(true);
+            setActionLoading(true);
+
+            if (scope === "global") {
+                if (!canViewGlobalHistory) {
+                    setAuditLogs([]);
+                    setError("No tenÃ©s permiso para ver el historial global.");
+                    return;
+                }
+
+                const data = await getGlobalAuditLogs();
+                setAuditLogs(data || []);
+                return;
+            }
+
+            if (!canViewPlantHistory) {
+                setAuditLogs([]);
+                setError("No tenÃ©s permiso para ver el historial de esta planta.");
+                return;
+            }
+
+            const data = await getPlantAuditLogs(plantCode);
+            setAuditLogs(data || []);
+        } catch (err) {
+            setError(err.message || "No se pudo cargar el historial.");
+            console.error(err);
+        } finally {
+            setLoading(false);
+            setActionLoading(false);
+        }
+    }
+
+    useEffect(() => {
+        loadAuditLogs();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [plantCode, scope]);
+
+    function handleScopeChange(event) {
+        setScope(event.target.value);
+    }
+
+    return (
+        <div className="app-shell">
+            <Topbar
+                subtitle={`Historial â€” ${scope === "global" ? "Global" : plantDisplayName}`}
+                activeRoute={activeRoute}
+                onNavigate={onNavigate}
+                currentUser={currentUser}
+                onLogout={onLogout}
+                selectedPlantCode={plantCode}
+                onPlantChange={onPlantChange}
+            />
+
+            {error && <div className="alert alert-error">{error}</div>}
+
+            {!canViewPlantHistory && scope === "plant" && (
+                <div className="alert alert-warning">
+                    No tenÃ©s permisos para ver el historial de esta planta.
+                </div>
+            )}
+
+            {!canViewGlobalHistory && scope === "global" && (
+                <div className="alert alert-warning">
+                    No tenÃ©s permisos para ver el historial global.
+                </div>
+            )}
+
+            <section className="card">
+                <p className="eyebrow">AuditorÃ­a</p>
+                <h3>Historial de movimientos</h3>
+
+                <div className="action-row">
+                    <label>
+                        Alcance{" "}
+                        <select value={scope} onChange={handleScopeChange}>
+                            <option value="plant">Planta seleccionada</option>
+                            {isPlatformAdmin && <option value="global">Global</option>}
+                        </select>
+                    </label>
+
+                    <button
+                        type="button"
+                        onClick={loadAuditLogs}
+                        disabled={actionLoading}
+                    >
+                        {actionLoading ? "Actualizando..." : "Actualizar"}
+                    </button>
+                </div>
+
+                {loading ? (
+                    <p>Cargando historial...</p>
+                ) : auditLogs.length === 0 ? (
+                    <p>TodavÃ­a no hay movimientos registrados.</p>
+                ) : (
+                    <div className="table-wrapper">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>Fecha y hora</th>
+                                <th>Planta</th>
+                                <th>Usuario</th>
+                                <th>AcciÃ³n</th>
+                                <th>Tipo</th>
+                                <th>Detalle</th>
+                            </tr>
+                            </thead>
+
+                            <tbody>
+                            {auditLogs.map((log) => (
+                                <tr key={log.id}>
+                                    <td>{formatDateTime(log.createdAt)}</td>
+                                    <td>{log.plantCode || "-"}</td>
+                                    <td>{log.username || "-"}</td>
+                                    <td>
+                      <span className="badge badge-info">
+                        {translateAction(log.action)}
+                      </span>
+                                    </td>
+                                    <td>{translateEntityName(log.entityName)}</td>
+                                    <td>{formatAuditDetail(log)}</td>
+                                </tr>
+                            ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </section>
+        </div>
+    );
+}
+
+export default HistoryPage;
+
+============================================================
+ARCHIVO: frontend\src\pages\LoginPage.jsx
+============================================================
+
+import { useState } from "react";
+import { login } from "../api/carteleraApi.js";
+
+function LoginPage({ onLoginSuccess }) {
+    const [formData, setFormData] = useState({
+        username: "",
+        password: "",
+    });
+
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+
+    function handleChange(event) {
+        const { name, value } = event.target;
+
+        setFormData((current) => ({
+            ...current,
+            [name]: value,
+        }));
+
+        if (error) {
+            setError("");
+        }
+    }
+
+    async function handleLoginSubmit(event) {
+        event.preventDefault();
+
+        if (!formData.username.trim() || !formData.password.trim()) {
+            setError("Usuario y contraseÃ±a son obligatorios.");
+            return;
+        }
+
+        try {
+            setLoading(true);
+            setError("");
+
+            const user = await login(formData.username.trim(), formData.password);
+            onLoginSuccess(user);
+        } catch (err) {
+            if (err.status === 423) {
+                setError("El usuario estÃ¡ deshabilitado. ContactÃ¡ a un administrador.");
+            } else if (err.status === 401) {
+                setError("Usuario o contraseÃ±a incorrectos.");
+            } else {
+                setError("No se pudo iniciar sesiÃ³n. VerificÃ¡ que el backend estÃ© levantado.");
+            }
+
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    return (
+        <main className="login-page">
+            <section className="login-card">
+                <h1>Cartelera Responsable de Planta</h1>
+
+                <h2>Iniciar sesiÃ³n</h2>
+
+                <p>IngresÃ¡ con tu usuario para administrar la cartelera.</p>
+
+                {error && <div className="alert alert-error">{error}</div>}
+
+                <form onSubmit={handleLoginSubmit} className="form-grid">
+                    <label>
+                        Usuario
+                        <input
+                            name="username"
+                            value={formData.username}
+                            onChange={handleChange}
+                            autoComplete="username"
+                            autoFocus
+                        />
+                    </label>
+
+                    <label>
+                        ContraseÃ±a
+                        <input
+                            name="password"
+                            type="password"
+                            value={formData.password}
+                            onChange={handleChange}
+                            autoComplete="current-password"
+                        />
+                    </label>
+
+                    <button type="submit" disabled={loading}>
+                        {loading ? "Ingresando..." : "Ingresar"}
+                    </button>
+                </form>
+            </section>
+        </main>
+    );
+}
+
+export default LoginPage;
+
+============================================================
+ARCHIVO: frontend\src\pages\UsersPage.jsx
+============================================================
+
+import { useEffect, useMemo, useState } from "react";
+import Topbar from "../components/Topbar.jsx";
+import {
+    assignPlantUserRole,
+    createGlobalUser,
+    getPlantUsers,
+    removePlantUserRole,
+    updateGlobalUser,
+    updateGlobalUserStatus,
+} from "../api/carteleraApi.js";
+
+function UsersPage({
+                       activeRoute,
+                       onNavigate,
+                       currentUser,
+                       onLogout,
+                       selectedPlantCode,
+                       onPlantChange,
+                   }) {
+    const selectedPlant = currentUser?.plants?.find(
+        (plant) => plant.code === selectedPlantCode
+    );
+
+    const plantCode = selectedPlantCode || currentUser?.plants?.[0]?.code || "ezeiza";
+
+    const plantDisplayName =
+        selectedPlant?.displayName || selectedPlant?.name || plantCode;
+
+    const [plantUsers, setPlantUsers] = useState([]);
+    const [formData, setFormData] = useState({
+        username: "",
+        corporateEmail: "",
+        fullName: "",
+        password: "",
+        platformAdmin: false,
+    });
+
+    const [loading, setLoading] = useState(true);
+    const [actionLoading, setActionLoading] = useState(false);
+    const [error, setError] = useState("");
+
+    const isPlatformAdmin = Boolean(currentUser?.platformAdmin);
+
+    const currentPlantRole = useMemo(() => {
+        if (isPlatformAdmin) {
+            return "ADMIN";
+        }
+
+        return (
+            currentUser?.plants?.find((plant) => plant.code === plantCode)?.role ||
+            "Sin permisos"
+        );
+    }, [currentUser, isPlatformAdmin, plantCode]);
+
+    const canManagePlantUsers = isPlatformAdmin || currentPlantRole === "ADMIN";
+
+    const sortedPlantUsers = useMemo(() => {
+        return [...plantUsers].sort((a, b) =>
+            (a.fullName || a.username || "").localeCompare(
+                b.fullName || b.username || "",
+                "es",
+                { sensitivity: "base" }
+            )
+        );
+    }, [plantUsers]);
+
+    async function loadUsers() {
+        try {
+            setError("");
+
+            if (!canManagePlantUsers) {
+                setPlantUsers([]);
+                return;
+            }
+
+            const plantData = await getPlantUsers(plantCode);
+            setPlantUsers(plantData || []);
+        } catch (err) {
+            setError(err.message || "No se pudieron cargar los usuarios de la planta.");
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    useEffect(() => {
+        setLoading(true);
+        loadUsers();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [plantCode, currentPlantRole, isPlatformAdmin]);
+
+    function handleInputChange(event) {
+        const { name, value, type, checked } = event.target;
+
+        setFormData((current) => ({
+            ...current,
+            [name]: type === "checkbox" ? checked : value,
+        }));
+    }
+
+    async function handleCreateUser(event) {
+        event.preventDefault();
+
+        if (!isPlatformAdmin) {
+            setError("Solo un platform admin puede crear usuarios globales.");
+            return;
+        }
+
+        if (
+            !formData.username.trim() ||
+            !formData.corporateEmail.trim() ||
+            !formData.fullName.trim() ||
+            !formData.password.trim()
+        ) {
+            setError(
+                "Username, email corporativo, nombre completo y contraseÃ±a temporal son obligatorios."
+            );
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await createGlobalUser({
+                username: formData.username.trim(),
+                corporateEmail: formData.corporateEmail.trim(),
+                fullName: formData.fullName.trim(),
+                password: formData.password,
+                platformAdmin: formData.platformAdmin,
+            });
+
+            setFormData({
+                username: "",
+                corporateEmail: "",
+                fullName: "",
+                password: "",
+                platformAdmin: false,
+            });
+
+            await loadUsers();
+        } catch (err) {
+            setError(err.message || "No se pudo crear el usuario. VerificÃ¡ que no exista.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleRoleChange(user, nextRole) {
+        if (!canManagePlantUsers) {
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setError("");
+
+            if (!nextRole) {
+                await removePlantUserRole(plantCode, user.userId);
+            } else {
+                await assignPlantUserRole(plantCode, user.userId, nextRole);
+            }
+
+            await loadUsers();
+        } catch (err) {
+            setError(err.message || "No se pudo actualizar el rol en la planta.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handlePlatformAdminChange(user, platformAdmin) {
+        if (!isPlatformAdmin) {
+            return;
+        }
+
+        if (user.username === "admin" && !platformAdmin) {
+            setError("No se puede quitar platformAdmin al administrador principal.");
+            return;
+        }
+
+        if (user.username === currentUser.username && !platformAdmin) {
+            setError("No podÃ©s quitarte platformAdmin a tu propio usuario.");
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await updateGlobalUser(user.userId, { platformAdmin });
+            await loadUsers();
+        } catch (err) {
+            setError(err.message || "No se pudo cambiar el permiso platformAdmin.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    async function handleToggleGlobalStatus(user) {
+        if (!isPlatformAdmin) {
+            return;
+        }
+
+        if (user.username === currentUser.username) {
+            setError("No podÃ©s desactivar tu propio usuario.");
+            return;
+        }
+
+        if (user.username === "admin") {
+            setError("No se puede desactivar el administrador principal.");
+            return;
+        }
+
+        const confirmed = window.confirm(
+            user.active
+                ? `Â¿Seguro que querÃ©s desactivar globalmente a ${user.username}?`
+                : `Â¿Seguro que querÃ©s activar globalmente a ${user.username}?`
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setActionLoading(true);
+            setError("");
+
+            await updateGlobalUserStatus(user.userId, !user.active);
+            await loadUsers();
+        } catch (err) {
+            setError(err.message || "No se pudo cambiar el estado global del usuario.");
+            console.error(err);
+        } finally {
+            setActionLoading(false);
+        }
+    }
+
+    return (
+        <div className="page">
+            <Topbar
+                subtitle={`Usuarios y permisos â€” ${plantDisplayName}`}
+                activeRoute={activeRoute}
+                onNavigate={onNavigate}
+                currentUser={currentUser}
+                onLogout={onLogout}
+                selectedPlantCode={plantCode}
+                onPlantChange={onPlantChange}
+            />
+
+            {error && <div className="error-box">{error}</div>}
+
+            {!canManagePlantUsers && (
+                <div className="pending-box warning-pending">
+                    <strong>No tenÃ©s permisos para administrar usuarios en esta planta.</strong>
+                    <span>Solo un platform admin o un ADMIN de planta puede administrar permisos.</span>
+                </div>
+            )}
+
+            {isPlatformAdmin && (
+                <section className="card">
+                    <span className="eyebrow">Usuarios globales</span>
+                    <h2>Crear usuario</h2>
+
+                    <form onSubmit={handleCreateUser} className="person-form compact-user-form">
+                        <label>
+                            Username
+                            <input
+                                name="username"
+                                value={formData.username}
+                                onChange={handleInputChange}
+                                placeholder="ej: jperez o jperez@empresa.com"
+                                disabled={actionLoading}
+                            />
+                        </label>
+
+                        <label>
+                            Email corporativo
+                            <input
+                                name="corporateEmail"
+                                value={formData.corporateEmail}
+                                onChange={handleInputChange}
+                                placeholder="usuario@empresa.com"
+                                disabled={actionLoading}
+                            />
+                        </label>
+
+                        <label>
+                            Nombre completo
+                            <input
+                                name="fullName"
+                                value={formData.fullName}
+                                onChange={handleInputChange}
+                                placeholder="Nombre Apellido"
+                                disabled={actionLoading}
+                            />
+                        </label>
+
+                        <label>
+                            ContraseÃ±a temporal
+                            <input
+                                name="password"
+                                type="password"
+                                value={formData.password}
+                                onChange={handleInputChange}
+                                disabled={actionLoading}
+                            />
+                        </label>
+
+                        <label className="availability-toggle compact-check">
+                            <input
+                                name="platformAdmin"
+                                type="checkbox"
+                                checked={formData.platformAdmin}
+                                onChange={handleInputChange}
+                                disabled={actionLoading}
+                            />
+                            Platform admin
+                        </label>
+
+                        <button type="submit" className="create-user-button" disabled={actionLoading}>
+                            {actionLoading ? "Guardando..." : "Crear usuario"}
+                        </button>
+                    </form>
+
+                    <p className="empty-message">
+                        La contraseÃ±a es temporal mientras exista login manual. A futuro, con Entra ID,
+                        la contraseÃ±a la administra Microsoft.
+                    </p>
+                </section>
+            )}
+
+            <section className="card">
+                <div className="section-header">
+                    <div>
+                        <span className="eyebrow">Permisos por planta</span>
+                        <h2>Usuarios de {plantCode}</h2>
+                    </div>
+
+                    <button type="button" onClick={loadUsers} disabled={actionLoading}>
+                        Actualizar
+                    </button>
+                </div>
+
+                <p className="empty-message">
+                    Esta tabla administra permisos sobre la planta seleccionada. La pertenencia operativa y la sucesiÃ³n se gestionan desde el panel operativo.
+                </p>
+
+                {loading ? (
+                    <p className="empty-message">Cargando usuarios...</p>
+                ) : sortedPlantUsers.length === 0 ? (
+                    <p className="empty-message">No hay usuarios registrados o no tenÃ©s permisos para verlos.</p>
+                ) : (
+                    <div className="table-wrapper">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>Usuario</th>
+                                <th>Email</th>
+                                <th>Nombre completo</th>
+                                <th>Estado global</th>
+                                <th>Platform admin</th>
+                                <th>Rol en esta planta</th>
+                                <th>Acciones</th>
+                            </tr>
+                            </thead>
+
+                            <tbody>
+                            {sortedPlantUsers.map((user) => {
+                                const roleInPlant = user.roleInPlant || "Sin permisos";
+                                const roleValue = roleInPlant === "Sin permisos" ? "" : roleInPlant;
+                                const isCurrentUser = user.username === currentUser.username;
+                                const isPrimaryAdmin = user.username === "admin";
+                                const isGlobalAdmin = Boolean(user.platformAdmin);
+
+                                return (
+                                    <tr key={user.userId}>
+                                        <td>{user.username}</td>
+                                        <td>{user.corporateEmail || "-"}</td>
+                                        <td>{user.fullName}</td>
+                                        <td>
+                                            {user.active ? (
+                                                <span className="responsible-badge">Activo</span>
+                                            ) : (
+                                                <span className="not-responsible-badge">Inactivo</span>
+                                            )}
+                                        </td>
+                                        <td>
+                                            <label className="availability-toggle compact-check">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isGlobalAdmin}
+                                                    onChange={(event) =>
+                                                        handlePlatformAdminChange(user, event.target.checked)
+                                                    }
+                                                    disabled={
+                                                        actionLoading ||
+                                                        !isPlatformAdmin ||
+                                                        isCurrentUser ||
+                                                        isPrimaryAdmin
+                                                    }
+                                                />
+                                                {isGlobalAdmin ? "SÃ­" : "No"}
+                                            </label>
+                                        </td>
+                                        <td>
+                                            <select
+                                                value={roleValue}
+                                                onChange={(event) => handleRoleChange(user, event.target.value)}
+                                                disabled={
+                                                    actionLoading ||
+                                                    !canManagePlantUsers ||
+                                                    !user.active ||
+                                                    isGlobalAdmin
+                                                }
+                                            >
+                                                <option value="">Sin permisos</option>
+                                                <option value="ADMIN">ADMIN</option>
+                                                <option value="OPERADOR">OPERADOR</option>
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <div className="actions">
+                                                {isPlatformAdmin && (
+                                                    <button
+                                                        type="button"
+                                                        className={user.active ? "danger-button" : "ghost-button"}
+                                                        onClick={() => handleToggleGlobalStatus(user)}
+                                                        disabled={actionLoading || isCurrentUser || isPrimaryAdmin}
+                                                    >
+                                                        {user.active ? "Desactivar" : "Activar"}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </section>
+        </div>
+    );
+}
+
+export default UsersPage;
+
+
+============================================================
+ARCHIVO: frontend\src\utils\formatDateTime.js
+============================================================
+
+export function formatDateTime(value) {
+    if (!value) {
+        return "-";
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    return date.toLocaleString("es-AR");
+}
+
+============================================================
+ARCHIVO: frontend\src\utils\translateAction.js
+============================================================
+
+export function translateAction(action) {
+    const translations = {
+        CREATE_PLANT: "Alta de planta",
+        UPDATE_PLANT: "ActualizaciÃ³n de planta",
+        ENABLE_PLANT: "ActivaciÃ³n de planta",
+        DISABLE_PLANT: "DesactivaciÃ³n de planta",
+
+        CREATE_USER: "Alta de usuario",
+        UPDATE_USER: "ActualizaciÃ³n de usuario",
+        ENABLE_USER: "ActivaciÃ³n de usuario",
+        DISABLE_USER: "DesactivaciÃ³n de usuario",
+
+        ASSIGN_USER_PLANT_ROLE: "AsignaciÃ³n de permiso",
+        UPDATE_USER_PLANT_ROLE: "Cambio de permiso",
+        REMOVE_USER_PLANT_ROLE: "Quita de permiso",
+
+        ADD_PLANT_MEMBER: "Alta de miembro de planta",
+        UPDATE_PLANT_MEMBER: "ActualizaciÃ³n de miembro",
+        REMOVE_PLANT_MEMBER: "Baja de miembro de planta",
+
+        CHANGE_AVAILABILITY: "Cambio de disponibilidad",
+
+        ADD_TO_SUCCESSION: "Alta en sucesiÃ³n",
+        REMOVE_FROM_SUCCESSION: "Baja de sucesiÃ³n",
+        MOVE_UP: "SubiÃ³ en sucesiÃ³n",
+        MOVE_DOWN: "BajÃ³ en sucesiÃ³n",
+
+        PUBLISH_DISPLAY: "PublicaciÃ³n cartelera",
+    };
+
+    return translations[action] || action || "-";
+}
+
+============================================================
+ARCHIVO: frontend\src\utils\translateAuditValue.js
+============================================================
+
+export function translateAuditValue(value) {
+    if (!value || !value.toString().trim()) {
+        return "-";
+    }
+
+    const booleanLabels = {
+        active: {
+            true: "Activo",
+            false: "Inactivo",
+        },
+        available: {
+            true: "Disponible",
+            false: "No disponible",
+        },
+        platformAdmin: {
+            true: "Administrador de plataforma",
+            false: "Usuario estÃ¡ndar",
+        },
+    };
+
+    const keyLabels = {
+        orderNumber: "Orden",
+        userId: "Usuario",
+        corporateEmail: "Email",
+        displayName: "Nombre para mostrar",
+        displayTitle: "TÃ­tulo",
+        position: "Cargo",
+        code: "CÃ³digo",
+        name: "Nombre",
+    };
+
+    return value
+        .split(/\s*,\s*/)
+        .map((chunk) => {
+            const [key, ...rest] = chunk.split("=");
+            const rawValue = rest.join("=").trim();
+            const normalizedKey = key?.trim();
+
+            if (!normalizedKey) {
+                return chunk;
+            }
+
+            if (booleanLabels[normalizedKey]) {
+                return booleanLabels[normalizedKey][rawValue] || `${keyLabels[normalizedKey] || normalizedKey}: ${rawValue}`;
+            }
+
+            if (keyLabels[normalizedKey]) {
+                return `${keyLabels[normalizedKey]}: ${rawValue}`;
+            }
+
+            if (rawValue) {
+                return `${normalizedKey}: ${rawValue}`;
+            }
+
+            return normalizedKey;
+        })
+        .join("; ");
+}
+
+
+============================================================
+ARCHIVO: frontend\src\utils\translateEntityName.js
+============================================================
+
+export function translateEntityName(entityName) {
+    const translations = {
+        AppUser: "Usuario",
+        Plant: "Planta",
+        PlantMember: "Miembro de planta",
+        SuccessionOrder: "SucesiÃ³n",
+        Display: "Cartelera",
+        UserPlantRole: "Permiso de planta",
+    };
+
+    return translations[entityName] || "Elemento";
+}
+
+
+============================================================
+ARCHIVO: frontend\vite.config.js
+============================================================
+
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        secure: false
+      }
+    }
+  }
+})
+
+============================================================
+ARCHIVO: HELP.md
+============================================================
+
+# Getting Started
+
+### Reference Documentation
+For further reference, please consider the following sections:
+
+* [Official Apache Maven documentation](https://maven.apache.org/guides/index.html)
+* [Spring Boot Maven Plugin Reference Guide](https://docs.spring.io/spring-boot/4.0.6/maven-plugin)
+* [Create an OCI image](https://docs.spring.io/spring-boot/4.0.6/maven-plugin/build-image.html)
+* [Spring Web](https://docs.spring.io/spring-boot/4.0.6/reference/web/servlet.html)
+* [Thymeleaf](https://docs.spring.io/spring-boot/4.0.6/reference/web/servlet.html#web.servlet.spring-mvc.template-engines)
+* [Spring Security](https://docs.spring.io/spring-boot/4.0.6/reference/web/spring-security.html)
+* [Spring Data JPA](https://docs.spring.io/spring-boot/4.0.6/reference/data/sql.html#data.sql.jpa-and-spring-data)
+* [Validation](https://docs.spring.io/spring-boot/4.0.6/reference/io/validation.html)
+
+### Guides
+The following guides illustrate how to use some features concretely:
+
+* [Building a RESTful Web Service](https://spring.io/guides/gs/rest-service/)
+* [Serving Web Content with Spring MVC](https://spring.io/guides/gs/serving-web-content/)
+* [Building REST services with Spring](https://spring.io/guides/tutorials/rest/)
+* [Handling Form Submission](https://spring.io/guides/gs/handling-form-submission/)
+* [Securing a Web Application](https://spring.io/guides/gs/securing-web/)
+* [Spring Boot and OAuth2](https://spring.io/guides/tutorials/spring-boot-oauth2/)
+* [Authenticating a User with LDAP](https://spring.io/guides/gs/authenticating-ldap/)
+* [Accessing Data with JPA](https://spring.io/guides/gs/accessing-data-jpa/)
+* [Validation](https://spring.io/guides/gs/validating-form-input/)
+
+### Maven Parent overrides
+
+Due to Maven's design, elements are inherited from the parent POM to the project POM.
+While most of the inheritance is fine, it also inherits unwanted elements like `<license>` and `<developers>` from the parent.
+To prevent this, the project POM contains empty overrides for these elements.
+If you manually switch to a different parent and actually want the inheritance, you need to remove those overrides.
+
+
+
+============================================================
+ARCHIVO: pom.xml
+============================================================
 
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -95,7 +2973,9 @@
 </project>
 
 
-==================== src\main\java\com\ezeiza\cartelera\CarteleraApplication.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\CarteleraApplication.java
+============================================================
 
 package com.ezeiza.cartelera;
 
@@ -112,7 +2992,9 @@ public class CarteleraApplication {
 }
 
 
-==================== src\main\java\com\ezeiza\cartelera\config\DataInitializer.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\config\DataInitializer.java
+============================================================
 
 package com.ezeiza.cartelera.config;
 
@@ -124,6 +3006,7 @@ import com.ezeiza.cartelera.repository.AppUserRepository;
 import com.ezeiza.cartelera.repository.PlantRepository;
 import com.ezeiza.cartelera.repository.UserPlantRoleRepository;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.env.Environment;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -135,15 +3018,18 @@ public class DataInitializer implements CommandLineRunner {
     private final PlantRepository plantRepository;
     private final UserPlantRoleRepository userPlantRoleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final Environment environment;
 
     public DataInitializer(AppUserRepository appUserRepository,
                            PlantRepository plantRepository,
                            UserPlantRoleRepository userPlantRoleRepository,
-                           PasswordEncoder passwordEncoder) {
+                           PasswordEncoder passwordEncoder,
+                           Environment environment) {
         this.appUserRepository = appUserRepository;
         this.plantRepository = plantRepository;
         this.userPlantRoleRepository = userPlantRoleRepository;
         this.passwordEncoder = passwordEncoder;
+        this.environment = environment;
     }
 
     @Override
@@ -175,9 +3061,11 @@ public class DataInitializer implements CommandLineRunner {
 
         AppUser admin = createAdminIfNotExists();
 
-        assignPlantRoleIfNotExists(admin, ezeiza, PlantRole.ADMIN);
-        assignPlantRoleIfNotExists(admin, aeroparque, PlantRole.ADMIN);
-        assignPlantRoleIfNotExists(admin, theProLaundry, PlantRole.ADMIN);
+        if (admin != null) {
+            assignPlantRoleIfNotExists(admin, ezeiza, PlantRole.ADMIN);
+            assignPlantRoleIfNotExists(admin, aeroparque, PlantRole.ADMIN);
+            assignPlantRoleIfNotExists(admin, theProLaundry, PlantRole.ADMIN);
+        }
     }
 
     private Plant createPlantIfNotExists(String code,
@@ -192,7 +3080,14 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private AppUser createAdminIfNotExists() {
-        return appUserRepository.findByUsername("admin")
+        String configuredUsername = environment.getProperty("app.default-admin.username", "admin");
+        String configuredPassword = environment.getProperty("app.default-admin.password");
+
+        if (configuredPassword == null || configuredPassword.isBlank()) {
+            return appUserRepository.findByUsername(configuredUsername).orElse(null);
+        }
+
+        return appUserRepository.findByUsername(configuredUsername)
                 .map(existing -> {
                     boolean changed = false;
 
@@ -211,13 +3106,18 @@ public class DataInitializer implements CommandLineRunner {
                         changed = true;
                     }
 
+                    if (!passwordEncoder.matches(configuredPassword, existing.getPasswordHash())) {
+                        existing.setPasswordHash(passwordEncoder.encode(configuredPassword));
+                        changed = true;
+                    }
+
                     return changed ? appUserRepository.save(existing) : existing;
                 })
                 .orElseGet(() -> {
                     AppUser admin = new AppUser(
-                            "admin",
+                            configuredUsername,
                             "admin@local",
-                            passwordEncoder.encode("admin"),
+                            passwordEncoder.encode(configuredPassword),
                             "Administrador del sistema",
                             true
                     );
@@ -253,8 +3153,9 @@ public class DataInitializer implements CommandLineRunner {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\config\SecurityConfig.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\config\SecurityConfig.java
+============================================================
 
 package com.ezeiza.cartelera.config;
 
@@ -359,8 +3260,9 @@ public class SecurityConfig {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\controller\audit\AuditLogController.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\controller\audit\AuditLogController.java
+============================================================
 
 package com.ezeiza.cartelera.controller.audit;
 
@@ -543,8 +3445,9 @@ public class AuditLogController {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\controller\auth\AuthController.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\controller\auth\AuthController.java
+============================================================
 
 package com.ezeiza.cartelera.controller.auth;
 
@@ -741,8 +3644,9 @@ public class AuthController {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\controller\display\PlantDisplayController.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\controller\display\PlantDisplayController.java
+============================================================
 
 package com.ezeiza.cartelera.controller.display;
 
@@ -792,8 +3696,9 @@ public class PlantDisplayController {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\controller\display\PublicDisplayController.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\controller\display\PublicDisplayController.java
+============================================================
 
 package com.ezeiza.cartelera.controller.display;
 
@@ -836,8 +3741,9 @@ public class PublicDisplayController {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\controller\frontend\FrontendForwardController.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\controller\frontend\FrontendForwardController.java
+============================================================
 
 package com.ezeiza.cartelera.controller.frontend;
 
@@ -888,8 +3794,9 @@ public class FrontendForwardController {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\controller\member\PlantMemberController.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\controller\member\PlantMemberController.java
+============================================================
 
 package com.ezeiza.cartelera.controller.member;
 
@@ -1017,8 +3924,9 @@ public class PlantMemberController {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\controller\plant\PlantAdminStateController.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\controller\plant\PlantAdminStateController.java
+============================================================
 
 package com.ezeiza.cartelera.controller.plant;
 
@@ -1170,8 +4078,9 @@ public class PlantAdminStateController {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\controller\plant\PlantController.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\controller\plant\PlantController.java
+============================================================
 
 package com.ezeiza.cartelera.controller.plant;
 
@@ -1302,8 +4211,9 @@ public class PlantController {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\controller\plant\PublicPlantController.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\controller\plant\PublicPlantController.java
+============================================================
 
 package com.ezeiza.cartelera.controller.plant;
 
@@ -1344,8 +4254,9 @@ public class PublicPlantController {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\controller\succession\SuccessionController.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\controller\succession\SuccessionController.java
+============================================================
 
 package com.ezeiza.cartelera.controller.succession;
 
@@ -1462,8 +4373,9 @@ public class SuccessionController {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\controller\user\GlobalUserController.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\controller\user\GlobalUserController.java
+============================================================
 
 package com.ezeiza.cartelera.controller.user;
 
@@ -1550,8 +4462,9 @@ public class GlobalUserController {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\controller\user\PlantUserRoleController.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\controller\user\PlantUserRoleController.java
+============================================================
 
 package com.ezeiza.cartelera.controller.user;
 
@@ -1673,21 +4586,9 @@ public class PlantUserRoleController {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\dto\CreateUserRequest.java ====================
-
-package com.ezeiza.cartelera.dto;
-
-public record CreateUserRequest(
-        String username,
-        String password,
-        String fullName,
-        String role
-) {
-}
-
-
-==================== src\main\java\com\ezeiza\cartelera\dto\audit\AuditLogEntryResponse.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\dto\audit\AuditLogEntryResponse.java
+============================================================
 
 package com.ezeiza.cartelera.dto.audit;
 
@@ -1706,8 +4607,9 @@ public record AuditLogEntryResponse(
 ) {
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\dto\auth\AuthPlantRoleResponse.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\dto\auth\AuthPlantRoleResponse.java
+============================================================
 
 package com.ezeiza.cartelera.dto.auth;
 
@@ -1719,8 +4621,9 @@ public record AuthPlantRoleResponse(
 ) {
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\dto\auth\AuthUserResponse.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\dto\auth\AuthUserResponse.java
+============================================================
 
 package com.ezeiza.cartelera.dto.auth;
 
@@ -1738,7 +4641,9 @@ public record AuthUserResponse(
 }
 
 
-==================== src\main\java\com\ezeiza\cartelera\dto\auth\LoginRequest.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\dto\auth\LoginRequest.java
+============================================================
 
 package com.ezeiza.cartelera.dto.auth;
 
@@ -1748,8 +4653,23 @@ public record LoginRequest(
 ) {
 }
 
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\dto\CreateUserRequest.java
+============================================================
 
-==================== src\main\java\com\ezeiza\cartelera\dto\display\PlantDisplayPublishedResponse.java ====================
+package com.ezeiza.cartelera.dto;
+
+public record CreateUserRequest(
+        String username,
+        String password,
+        String fullName,
+        String role
+) {
+}
+
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\dto\display\PlantDisplayPublishedResponse.java
+============================================================
 
 package com.ezeiza.cartelera.dto.display;
 
@@ -1765,8 +4685,9 @@ public record PlantDisplayPublishedResponse(
 ) {
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\dto\member\AvailabilityRequest.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\dto\member\AvailabilityRequest.java
+============================================================
 
 package com.ezeiza.cartelera.dto.member;
 
@@ -1775,8 +4696,9 @@ public record AvailabilityRequest(
 ) {
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\dto\member\CreatePlantMemberRequest.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\dto\member\CreatePlantMemberRequest.java
+============================================================
 
 package com.ezeiza.cartelera.dto.member;
 
@@ -1786,8 +4708,9 @@ public record CreatePlantMemberRequest(
 ) {
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\dto\member\PlantMemberResponse.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\dto\member\PlantMemberResponse.java
+============================================================
 
 package com.ezeiza.cartelera.dto.member;
 
@@ -1806,8 +4729,9 @@ public record PlantMemberResponse(
 ) {
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\dto\member\UpdatePlantMemberRequest.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\dto\member\UpdatePlantMemberRequest.java
+============================================================
 
 package com.ezeiza.cartelera.dto.member;
 
@@ -1817,8 +4741,9 @@ public record UpdatePlantMemberRequest(
 ) {
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\dto\plant\CreatePlantRequest.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\dto\plant\CreatePlantRequest.java
+============================================================
 
 package com.ezeiza.cartelera.dto.plant;
 
@@ -1831,8 +4756,9 @@ public record CreatePlantRequest(
 ) {
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\dto\plant\MyPlantResponse.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\dto\plant\MyPlantResponse.java
+============================================================
 
 package com.ezeiza.cartelera.dto.plant;
 
@@ -1844,8 +4770,9 @@ public record MyPlantResponse(
 ) {
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\dto\plant\PlantAdminStateResponse.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\dto\plant\PlantAdminStateResponse.java
+============================================================
 
 package com.ezeiza.cartelera.dto.plant;
 
@@ -1864,8 +4791,9 @@ public record PlantAdminStateResponse(
 ) {
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\dto\plant\PlantResponse.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\dto\plant\PlantResponse.java
+============================================================
 
 package com.ezeiza.cartelera.dto.plant;
 
@@ -1882,8 +4810,9 @@ public record PlantResponse(
 ) {
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\dto\plant\PublicPlantResponse.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\dto\plant\PublicPlantResponse.java
+============================================================
 
 package com.ezeiza.cartelera.dto.plant;
 
@@ -1897,8 +4826,9 @@ public record PublicPlantResponse(
 ) {
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\dto\plant\UpdatePlantRequest.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\dto\plant\UpdatePlantRequest.java
+============================================================
 
 package com.ezeiza.cartelera.dto.plant;
 
@@ -1910,8 +4840,9 @@ public record UpdatePlantRequest(
 ) {
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\dto\plant\UpdatePlantStatusRequest.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\dto\plant\UpdatePlantStatusRequest.java
+============================================================
 
 package com.ezeiza.cartelera.dto.plant;
 
@@ -1920,8 +4851,9 @@ public record UpdatePlantStatusRequest(
 ) {
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\dto\succession\SuccessionOrderResponse.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\dto\succession\SuccessionOrderResponse.java
+============================================================
 
 package com.ezeiza.cartelera.dto.succession;
 
@@ -1939,8 +4871,9 @@ public record SuccessionOrderResponse(
 ) {
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\dto\user\CreateGlobalUserRequest.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\dto\user\CreateGlobalUserRequest.java
+============================================================
 
 package com.ezeiza.cartelera.dto.user;
 
@@ -1953,8 +4886,9 @@ public record CreateGlobalUserRequest(
 ) {
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\dto\user\GlobalUserResponse.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\dto\user\GlobalUserResponse.java
+============================================================
 
 package com.ezeiza.cartelera.dto.user;
 
@@ -1972,8 +4906,9 @@ public record GlobalUserResponse(
 ) {
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\dto\user\PlantRoleRequest.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\dto\user\PlantRoleRequest.java
+============================================================
 
 package com.ezeiza.cartelera.dto.user;
 
@@ -1982,8 +4917,9 @@ public record PlantRoleRequest(
 ) {
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\dto\user\PlantUserResponse.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\dto\user\PlantUserResponse.java
+============================================================
 
 package com.ezeiza.cartelera.dto.user;
 
@@ -1999,8 +4935,9 @@ public record PlantUserResponse(
 ) {
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\dto\user\UpdateGlobalUserRequest.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\dto\user\UpdateGlobalUserRequest.java
+============================================================
 
 package com.ezeiza.cartelera.dto.user;
 
@@ -2011,8 +4948,9 @@ public record UpdateGlobalUserRequest(
 ) {
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\dto\user\UpdateGlobalUserStatusRequest.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\dto\user\UpdateGlobalUserStatusRequest.java
+============================================================
 
 package com.ezeiza.cartelera.dto.user;
 
@@ -2021,8 +4959,9 @@ public record UpdateGlobalUserStatusRequest(
 ) {
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\dto\user\UserPlantRoleResponse.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\dto\user\UserPlantRoleResponse.java
+============================================================
 
 package com.ezeiza.cartelera.dto.user;
 
@@ -2041,8 +4980,9 @@ public record UserPlantRoleResponse(
 ) {
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\entity\AppUser.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\entity\AppUser.java
+============================================================
 
 package com.ezeiza.cartelera.entity;
 
@@ -2215,8 +5155,9 @@ public class AppUser {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\entity\AuditLog.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\entity\AuditLog.java
+============================================================
 
 package com.ezeiza.cartelera.entity;
 
@@ -2392,8 +5333,9 @@ public class AuditLog {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\entity\DisplayPublished.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\entity\DisplayPublished.java
+============================================================
 
 package com.ezeiza.cartelera.entity;
 
@@ -2520,7 +5462,9 @@ public class DisplayPublished {
 }
 
 
-==================== src\main\java\com\ezeiza\cartelera\entity\Plant.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\entity\Plant.java
+============================================================
 
 package com.ezeiza.cartelera.entity;
 
@@ -2691,8 +5635,9 @@ public class Plant {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\entity\PlantMember.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\entity\PlantMember.java
+============================================================
 
 package com.ezeiza.cartelera.entity;
 
@@ -2826,8 +5771,9 @@ public class PlantMember {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\entity\PlantRole.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\entity\PlantRole.java
+============================================================
 
 package com.ezeiza.cartelera.entity;
 
@@ -2836,8 +5782,9 @@ public enum PlantRole {
     OPERADOR
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\entity\SuccessionOrder.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\entity\SuccessionOrder.java
+============================================================
 
 package com.ezeiza.cartelera.entity;
 
@@ -2944,8 +5891,9 @@ public class SuccessionOrder {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\entity\UserPlantRole.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\entity\UserPlantRole.java
+============================================================
 
 package com.ezeiza.cartelera.entity;
 
@@ -3056,8 +6004,9 @@ public class UserPlantRole {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\exception\ApiExceptionHandler.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\exception\ApiExceptionHandler.java
+============================================================
 
 package com.ezeiza.cartelera.exception;
 
@@ -3077,8 +6026,9 @@ public class ApiExceptionHandler {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\repository\AppUserRepository.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\repository\AppUserRepository.java
+============================================================
 
 package com.ezeiza.cartelera.repository;
 
@@ -3104,8 +6054,9 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
     long countByPlatformAdminTrueAndActiveTrue();
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\repository\AuditLogRepository.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\repository\AuditLogRepository.java
+============================================================
 
 package com.ezeiza.cartelera.repository;
 
@@ -3132,8 +6083,9 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
     List<AuditLog> findTop100ByPlantIsNullOrderByCreatedAtDesc();
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\repository\DisplayPublishedRepository.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\repository\DisplayPublishedRepository.java
+============================================================
 
 package com.ezeiza.cartelera.repository;
 
@@ -3149,8 +6101,9 @@ public interface DisplayPublishedRepository extends JpaRepository<DisplayPublish
     Optional<DisplayPublished> findTopByPlant_CodeOrderByIdDesc(String plantCode);
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\repository\PlantMemberRepository.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\repository\PlantMemberRepository.java
+============================================================
 
 package com.ezeiza.cartelera.repository;
 
@@ -3185,8 +6138,9 @@ public interface PlantMemberRepository extends JpaRepository<PlantMember, Long> 
     boolean existsByPlant_CodeAndUser_IdAndActiveTrue(String plantCode, Long userId);
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\repository\PlantRepository.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\repository\PlantRepository.java
+============================================================
 
 package com.ezeiza.cartelera.repository;
 
@@ -3209,8 +6163,9 @@ public interface PlantRepository extends JpaRepository<Plant, Long> {
     List<Plant> findAllByOrderBySortOrderAscNameAsc();
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\repository\SuccessionOrderRepository.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\repository\SuccessionOrderRepository.java
+============================================================
 
 package com.ezeiza.cartelera.repository;
 
@@ -3257,7 +6212,9 @@ public interface SuccessionOrderRepository extends JpaRepository<SuccessionOrder
 }
 
 
-==================== src\main\java\com\ezeiza\cartelera\repository\UserPlantRoleRepository.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\repository\UserPlantRoleRepository.java
+============================================================
 
 package com.ezeiza.cartelera.repository;
 
@@ -3298,8 +6255,9 @@ public interface UserPlantRoleRepository extends JpaRepository<UserPlantRole, Lo
     boolean existsByUser_IdAndPlant_CodeAndActiveTrue(Long userId, String plantCode);
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\service\audit\AuditService.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\service\audit\AuditService.java
+============================================================
 
 package com.ezeiza.cartelera.service.audit;
 
@@ -3427,8 +6385,9 @@ public class AuditService {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\service\auth\AppUserDetailsService.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\service\auth\AppUserDetailsService.java
+============================================================
 
 package com.ezeiza.cartelera.service.auth;
 
@@ -3465,8 +6424,9 @@ public class AppUserDetailsService implements UserDetailsService {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\service\display\DisplayService.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\service\display\DisplayService.java
+============================================================
 
 package com.ezeiza.cartelera.service.display;
 
@@ -3587,8 +6547,9 @@ public class DisplayService {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\service\member\PlantMemberService.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\service\member\PlantMemberService.java
+============================================================
 
 package com.ezeiza.cartelera.service.member;
 
@@ -3890,8 +6851,9 @@ public class PlantMemberService {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\service\plant\PlantPermissionService.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\service\plant\PlantPermissionService.java
+============================================================
 
 package com.ezeiza.cartelera.service.plant;
 
@@ -4076,8 +7038,9 @@ public class PlantPermissionService {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\service\plant\PlantService.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\service\plant\PlantService.java
+============================================================
 
 package com.ezeiza.cartelera.service.plant;
 
@@ -4298,8 +7261,9 @@ public class PlantService {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\service\succession\SuccessionService.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\service\succession\SuccessionService.java
+============================================================
 
 package com.ezeiza.cartelera.service.succession;
 
@@ -4581,8 +7545,9 @@ public class SuccessionService {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\service\user\GlobalUserService.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\service\user\GlobalUserService.java
+============================================================
 
 package com.ezeiza.cartelera.service.user;
 
@@ -4836,8 +7801,9 @@ public class GlobalUserService {
     }
 }
 
-
-==================== src\main\java\com\ezeiza\cartelera\service\user\UserPlantRoleService.java ====================
+============================================================
+ARCHIVO: src\main\java\com\ezeiza\cartelera\service\user\UserPlantRoleService.java
+============================================================
 
 package com.ezeiza.cartelera.service.user;
 
@@ -5047,8 +8013,9 @@ public class UserPlantRoleService {
     }
 }
 
-
-==================== src\main\resources\application.properties ====================
+============================================================
+ARCHIVO: src\main\resources\application.properties
+============================================================
 
 spring.application.name=cartelera
 
@@ -5063,3 +8030,29 @@ spring.jpa.show-sql=true
 
 spring.servlet.multipart.max-file-size=10MB
 spring.servlet.multipart.max-request-size=10MB
+
+# Initial admin credentials. Set these in the runtime environment instead of committing them to source.
+app.default-admin.username=${APP_ADMIN_USERNAME:admin}
+app.default-admin.password=${APP_ADMIN_PASSWORD:}
+
+# Serve frontend build files from the dist folder so assets referenced as /assets/* resolve correctly
+spring.web.resources.static-locations=classpath:/static/dist/,classpath:/static/
+
+============================================================
+ARCHIVO: src\test\java\com\ezeiza\cartelera\CarteleraApplicationTests.java
+============================================================
+
+package com.ezeiza.cartelera;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+class CarteleraApplicationTests {
+
+	@Test
+	void contextLoads() {
+	}
+
+}
+
