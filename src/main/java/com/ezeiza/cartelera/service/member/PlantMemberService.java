@@ -204,7 +204,7 @@ public class PlantMemberService {
         );
     }
 
-    @Transactional
+        @Transactional
     public PlantMember updateAvailability(String plantCode,
                                           Long memberId,
                                           boolean available) {
@@ -220,6 +220,40 @@ public class PlantMemberService {
         }
 
         boolean oldAvailability = member.isAvailable();
+
+        if (available) {
+            boolean availableInAnotherPlant = plantMemberRepository
+                    .existsByUser_IdAndAvailableTrueAndActiveTrueAndPlant_CodeNot(
+                            member.getUser().getId(),
+                            plant.getCode()
+                    );
+
+            if (availableInAnotherPlant) {
+                throw new IllegalArgumentException(
+                        member.getDisplayName() + " ya está marcado como encargado en otra planta. "
+                                + "Primero hay que sacarlo de ahí antes de asignarlo acá."
+                );
+            }
+
+            plantMemberRepository.findByPlant_CodeAndActiveTrueAndAvailableTrue(plant.getCode())
+                    .stream()
+                    .filter(other -> !other.getId().equals(member.getId()))
+                    .forEach(previousResponsible -> {
+                        previousResponsible.setAvailable(false);
+                        plantMemberRepository.save(previousResponsible);
+
+                        auditService.registerForPlant(
+                                plant,
+                                "CHANGE_AVAILABILITY",
+                                "PlantMember",
+                                previousResponsible.getId(),
+                                "Se reemplazó como encargado a " + previousResponsible.getDisplayName()
+                                        + " por " + member.getDisplayName(),
+                                "available=true",
+                                "available=false"
+                        );
+                    });
+        }
 
         member.setAvailable(available);
 

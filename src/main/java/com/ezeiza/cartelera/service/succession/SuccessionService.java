@@ -46,16 +46,11 @@ public class SuccessionService {
     public Optional<PlantMember> calculateCurrentResponsible(String plantCode) {
         Plant plant = plantService.getActiveByCode(plantCode);
 
-        List<SuccessionOrder> successionList = successionOrderRepository
-                .findByPlant_CodeAndActiveTrueOrderByOrderNumberAsc(plant.getCode());
-
-        return successionList.stream()
-                .map(SuccessionOrder::getPlantMember)
-                .filter(member -> member != null)
-                .filter(PlantMember::isActive)
+        return plantMemberRepository
+                .findByPlant_CodeAndActiveTrueAndAvailableTrue(plant.getCode())
+                .stream()
                 .filter(member -> member.getUser() != null)
                 .filter(member -> member.getUser().isActive())
-                .filter(PlantMember::isAvailable)
                 .findFirst();
     }
 

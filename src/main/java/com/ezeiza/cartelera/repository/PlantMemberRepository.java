@@ -29,4 +29,8 @@ public interface PlantMemberRepository extends JpaRepository<PlantMember, Long> 
     boolean existsByPlantAndUserAndActiveTrue(Plant plant, AppUser user);
 
     boolean existsByPlant_CodeAndUser_IdAndActiveTrue(String plantCode, Long userId);
+
+    boolean existsByUser_IdAndAvailableTrueAndActiveTrueAndPlant_CodeNot(Long userId, String plantCode);
+
+    List<PlantMember> findByPlant_CodeAndActiveTrueAndAvailableTrue(String plantCode);
 }

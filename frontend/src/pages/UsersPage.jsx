@@ -357,15 +357,15 @@ function UsersPage({
                     <div className="table-wrapper">
                         <table>
                             <thead>
-                            <tr>
-                                <th>Usuario</th>
-                                <th>Email</th>
-                                <th>Nombre completo</th>
-                                <th>Estado global</th>
-                                <th>Platform admin</th>
-                                <th>Rol en esta planta</th>
-                                <th>Acciones</th>
-                            </tr>
+                                <tr>
+                                    <th>Usuario</th>
+                                    <th>Email</th>
+                                    <th>Nombre completo</th>
+                                    <th>Estado global</th>
+                                    {isPlatformAdmin && <th>Platform admin</th>}
+                                    <th>Rol en esta planta</th>
+                                    {isPlatformAdmin && <th>Acciones</th>}
+                                </tr>
                             </thead>
 
                             <tbody>
@@ -388,24 +388,26 @@ function UsersPage({
                                                 <span className="not-responsible-badge">Inactivo</span>
                                             )}
                                         </td>
-                                        <td>
-                                            <label className="availability-toggle compact-check">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={isGlobalAdmin}
-                                                    onChange={(event) =>
-                                                        handlePlatformAdminChange(user, event.target.checked)
-                                                    }
-                                                    disabled={
-                                                        actionLoading ||
-                                                        !isPlatformAdmin ||
-                                                        isCurrentUser ||
-                                                        isPrimaryAdmin
-                                                    }
-                                                />
-                                                {isGlobalAdmin ? "Sí" : "No"}
-                                            </label>
-                                        </td>
+                                        {isPlatformAdmin && (
+                                            <td>
+                                                <label className="availability-toggle compact-check">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isGlobalAdmin}
+                                                        onChange={(event) =>
+                                                            handlePlatformAdminChange(user, event.target.checked)
+                                                        }
+                                                        disabled={
+                                                            actionLoading ||
+                                                            !isPlatformAdmin ||
+                                                            isCurrentUser ||
+                                                            isPrimaryAdmin
+                                                        }
+                                                    />
+                                                    {isGlobalAdmin ? "Sí" : "No"}
+                                                </label>
+                                            </td>
+                                        )}
                                         <td>
                                             <select
                                                 value={roleValue}
@@ -422,9 +424,9 @@ function UsersPage({
                                                 <option value="OPERADOR">OPERADOR</option>
                                             </select>
                                         </td>
-                                        <td>
-                                            <div className="actions">
-                                                {isPlatformAdmin && (
+                                        {isPlatformAdmin && (
+                                            <td>
+                                                <div className="actions">
                                                     <button
                                                         type="button"
                                                         className={user.active ? "danger-button" : "ghost-button"}
@@ -433,9 +435,9 @@ function UsersPage({
                                                     >
                                                         {user.active ? "Desactivar" : "Activar"}
                                                     </button>
-                                                )}
-                                            </div>
-                                        </td>
+                                                </div>
+                                            </td>
+                                        )}
                                     </tr>
                                 );
                             })}

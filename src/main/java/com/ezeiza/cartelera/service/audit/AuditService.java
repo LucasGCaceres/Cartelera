@@ -3,10 +3,16 @@ package com.ezeiza.cartelera.service.audit;
 import com.ezeiza.cartelera.entity.AuditLog;
 import com.ezeiza.cartelera.entity.Plant;
 import com.ezeiza.cartelera.repository.AuditLogRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -99,6 +105,68 @@ public class AuditService {
 
     public List<AuditLog> findLatestGlobal() {
         return auditLogRepository.findTop100ByPlantIsNullOrderByCreatedAtDesc();
+    }
+
+    public Page<AuditLog> searchAuditLogs(String plantCode,
+                                         boolean onlyGlobal,
+                                         String action,
+                                         String username,
+                                         LocalDate from,
+                                         LocalDate to,
+                                         int page,
+                                         int size) {
+        if (onlyGlobal && plantCode != null && !plantCode.trim().isBlank()) {
+            throw new IllegalArgumentException("No se puede combinar plantCode con onlyGlobal.");
+        }
+
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+
+        Sort sort = Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("id")
+        );
+
+        PageRequest pageable = PageRequest.of(safePage, safeSize, sort);
+
+        return auditLogRepository.findAll(
+                buildSpecification(plantCode, onlyGlobal, action, username, from, to),
+                pageable
+        );
+    }
+
+    private Specification<AuditLog> buildSpecification(
+            String plantCode,
+            boolean onlyGlobal,
+            String action,
+            String username,
+            LocalDate from,
+            LocalDate to
+    ) {
+        List<Specification<AuditLog>> filters = new ArrayList<>();
+
+        if (onlyGlobal) {
+            filters.add(AuditLogSpecifications.onlyGlobal());
+        } else if (plantCode != null) {
+            filters.add(AuditLogSpecifications.plantCode(plantCode));
+        }
+
+        filters.add(AuditLogSpecifications.actionEquals(action));
+        filters.add(AuditLogSpecifications.usernameContains(username));
+        filters.add(AuditLogSpecifications.createdAtGreaterThanOrEqual(from));
+        filters.add(AuditLogSpecifications.createdAtBefore(to));
+
+        Specification<AuditLog> combined = null;
+
+        for (Specification<AuditLog> filter : filters) {
+            if (filter == null) {
+                continue;
+            }
+
+            combined = combined == null ? Specification.where(filter) : combined.and(filter);
+        }
+
+        return combined;
     }
 
     public String getCurrentUsername() {

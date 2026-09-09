@@ -95,9 +95,18 @@ public class Plant {
     }
 
     private static String normalizeCode(String value) {
-        return value == null ? null : value.trim().toLowerCase();
-    }
+        if (value == null) {
+            return null;
+        }
 
+        String trimmed = value.trim().toLowerCase();
+
+        if (trimmed.isEmpty()) {
+            return trimmed;
+        }
+
+        return trimmed.replaceAll("\\s+", "-");
+    }
     private static String clean(String value) {
         return value == null ? null : value.trim();
     }

@@ -47,6 +47,18 @@ function getDefaultPlantCode(user) {
   return user.plants[0].code || DEFAULT_PLANT_CODE;
 }
 
+function userHasRoleInPlant(user, plantCode) {
+    if (!user) {
+        return false;
+    }
+
+    if (user.platformAdmin) {
+        return true;
+    }
+
+    return Boolean(user.plants?.some((plant) => plant.code === plantCode));
+}
+
 function buildPathForRoute(route, plantCode) {
   const safePlantCode = plantCode || DEFAULT_PLANT_CODE;
 
@@ -264,13 +276,16 @@ function App() {
   }
 
   if (route === "app") {
+    const appPlantCode =
+        selectedPlantCode || getPlantCodeFromPath() || getDefaultPlantCode(currentUser);
+
     return (
         <DisplayPage
-            plantCode={selectedPlantCode || getPlantCodeFromPath() || getDefaultPlantCode(currentUser)}
+            plantCode={appPlantCode}
             currentUser={currentUser}
             onLogout={handleLogout}
             interactive
-            canOpenPanel={canUseAdminArea}
+            canOpenPanel={userHasRoleInPlant(currentUser, appPlantCode)}
             onOpenPanel={handleOpenPanel}
         />
     );

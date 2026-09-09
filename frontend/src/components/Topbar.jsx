@@ -10,22 +10,15 @@ function Topbar({
     const plants = currentUser?.plants || [];
     const isPlatformAdmin = Boolean(currentUser?.platformAdmin);
 
-    const selectedPlant = plants.find((plant) => plant.code === selectedPlantCode);
+    const effectivePlantCode = selectedPlantCode || plants[0]?.code || "ezeiza";
+    const selectedPlant = plants.find((plant) => plant.code === effectivePlantCode);
     const selectedRole = selectedPlant?.role || (isPlatformAdmin ? "ADMIN" : "Sin permisos");
 
-    const canViewUsers =
-        isPlatformAdmin || plants.some((plant) => plant.role === "ADMIN");
-
+    const canViewUsers = isPlatformAdmin || selectedPlant?.role === "ADMIN";
     const canViewHistory = canViewUsers;
-
-    const effectivePlantCode = selectedPlantCode || plants[0]?.code || "ezeiza";
 
     function handlePlantChange(event) {
         onPlantChange?.(event.target.value);
-    }
-
-    function openDisplay() {
-        window.open(`/display/${effectivePlantCode}`, "_blank", "noopener,noreferrer");
     }
 
     return (
@@ -38,7 +31,7 @@ function Topbar({
             <div className="topbar-actions">
                 {plants.length > 0 && (
                     <label className="topbar-plant-selector">
-                        Planta{" "}
+                        {" "}
                         <select value={effectivePlantCode} onChange={handlePlantChange}>
                             {plants.map((plant) => (
                                 <option key={plant.code} value={plant.code}>
@@ -80,7 +73,7 @@ function Topbar({
                 <button
                     type="button"
                     className="nav-button display-nav-button"
-                    onClick={openDisplay}
+                    onClick={() => onNavigate("app", effectivePlantCode)}
                 >
                     Abrir cartelera
                 </button>

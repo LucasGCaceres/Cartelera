@@ -46,3 +46,6 @@ build/
 *.crt
 *.cer
 cartelera.db
+cartelera.db-shm
+cartelera.db-wal
+cartelera.db-journal
