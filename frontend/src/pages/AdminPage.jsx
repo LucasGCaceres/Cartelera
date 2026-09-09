@@ -1,15 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Topbar from "../components/Topbar.jsx";
 import {
-    addMemberToSuccession,
     addPlantMember,
     getPlantAdminState,
     getPlantMembers,
     getPlantUsers,
-    moveSuccessionMemberDown,
-    moveSuccessionMemberUp,
     publishPlantDisplay,
-    removeMemberFromSuccession,
+    removePlantMember,
     updatePlantMemberAvailability,
 } from "../api/carteleraApi.js";
 
@@ -55,17 +52,17 @@ function AdminPage({
     const canAdminPlant = isPlantAdmin;
     const canOperatePlant = isPlantAdmin || isPlantOperator;
 
-    const successionList = adminState.successionList || [];
     const currentResponsible = adminState.currentResponsible;
     const publishedDisplay = adminState.publishedDisplay;
 
-    const successionMemberIds = useMemo(() => {
+    const existingMemberUserIds = useMemo(() => {
         return new Set(
-            successionList
-                .map((item) => item.member?.userId)
+            members
+                .filter((member) => member.active)
+                .map((member) => member.userId)
                 .filter((userId) => userId !== null && userId !== undefined)
         );
-    }, [successionList]);
+    }, [members]);
 
     const formatUserLabel = (user) =>
         `${user.fullName} — ${user.corporateEmail || user.username}`;
@@ -73,8 +70,8 @@ function AdminPage({
     const availableUsers = useMemo(() => {
         return plantUsers
             .filter((user) => user.active)
-            .filter((user) => !successionMemberIds.has(user.userId));
-    }, [plantUsers, successionMemberIds]);
+            .filter((user) => !existingMemberUserIds.has(user.userId));
+    }, [plantUsers, existingMemberUserIds]);
 
     const availableUsersToAdd = useMemo(() => {
         const query = userSearch.trim().toLowerCase();
@@ -241,10 +238,6 @@ function AdminPage({
                 memberForm.position.trim()
             );
 
-            if (createdMember?.id) {
-                await addMemberToSuccession(plantCode, createdMember.id);
-            }
-
             setMemberForm({
                 userId: "",
                 position: "",
@@ -275,39 +268,9 @@ function AdminPage({
         }
     }
 
-    async function handleMoveUp(memberId) {
-        try {
-            setActionLoading(true);
-            setError("");
-
-            await moveSuccessionMemberUp(plantCode, memberId);
-            await reloadStateOnly();
-        } catch (err) {
-            setError(err.message || "No se pudo subir en la lista.");
-            console.error(err);
-        } finally {
-            setActionLoading(false);
-        }
-    }
-
-    async function handleMoveDown(memberId) {
-        try {
-            setActionLoading(true);
-            setError("");
-
-            await moveSuccessionMemberDown(plantCode, memberId);
-            await reloadStateOnly();
-        } catch (err) {
-            setError(err.message || "No se pudo bajar en la lista.");
-            console.error(err);
-        } finally {
-            setActionLoading(false);
-        }
-    }
-
-    async function handleRemoveFromSuccession(member) {
+        async function handleRemoveMember(member) {
         const confirmed = window.confirm(
-            `¿Seguro que querés quitar a ${member.fullName} de la sucesión?`
+            `¿Seguro que querés quitar a ${member.fullName} como miembro de esta planta?`
         );
 
         if (!confirmed) {
@@ -318,14 +281,31 @@ function AdminPage({
             setActionLoading(true);
             setError("");
 
-            await removeMemberFromSuccession(plantCode, member.id);
-            await reloadStateOnly();
+            await removePlantMember(plantCode, member.id);
+            await loadAllData();
         } catch (err) {
-            setError(err.message || "No se pudo quitar de la sucesión.");
+            setError(err.message || "No se pudo quitar al miembro de la planta.");
             console.error(err);
         } finally {
             setActionLoading(false);
         }
+    }
+
+    function handlePlantChangeRequest(nextPlantCode) {
+        if (hasPendingChanges) {
+            const confirmed = window.confirm(
+                "Tenés cambios sin sincronizar en esta planta: el responsable resultante " +
+                "no coincide con lo que está publicado en la cartelera. Si cambiás de planta " +
+                "ahora, esos cambios van a quedar pendientes hasta que vuelvas y publiques. " +
+                "¿Querés cambiar de planta igual?"
+            );
+
+            if (!confirmed) {
+                return;
+            }
+        }
+
+        onPlantChange?.(nextPlantCode);
     }
 
     async function handlePublishDisplay() {
@@ -382,7 +362,7 @@ function AdminPage({
                 currentUser={currentUser}
                 onLogout={onLogout}
                 selectedPlantCode={plantCode}
-                onPlantChange={onPlantChange}
+                onPlantChange={handlePlantChangeRequest}
             />
 
             {error && <div className="error-box">{error}</div>}
@@ -544,39 +524,31 @@ function AdminPage({
             <section className="card">
                 <div className="section-header">
                     <div>
-                        <span className="eyebrow">Sucesión</span>
-                        <h2>Lista de sucesión y disponibilidad</h2>
+                        <span className="eyebrow">Responsables operativos</span>
+                        <h2>Marcar encargado de planta</h2>
                     </div>
                 </div>
 
-                {successionList.length === 0 ? (
-                    <p className="empty-message">Todavía no hay miembros en la sucesión de esta planta.</p>
+                {members.filter((member) => member.active).length === 0 ? (
+                    <p className="empty-message">Todavía no hay miembros activos en esta planta.</p>
                 ) : (
                     <div className="table-wrapper">
                         <table>
                             <thead>
                             <tr>
-                                <th>Orden</th>
                                 <th>Nombre</th>
                                 <th>Email</th>
                                 <th>Cargo</th>
-                                <th>Disponible</th>
-                                <th>Responsable</th>
+                                <th>Encargado actual</th>
                                 <th>Acciones</th>
                             </tr>
                             </thead>
 
                             <tbody>
-                            {successionList.map((item) => {
-                                const member = item.member;
-
-                                if (!member) {
-                                    return null;
-                                }
-
-                                return (
-                                    <tr key={item.id}>
-                                        <td>{item.orderNumber}</td>
+                            {members
+                                .filter((member) => member.active)
+                                .map((member) => (
+                                    <tr key={member.id}>
                                         <td>{member.fullName}</td>
                                         <td>{member.corporateEmail || "-"}</td>
                                         <td>{member.position || "-"}</td>
@@ -594,49 +566,19 @@ function AdminPage({
                                             </label>
                                         </td>
                                         <td>
-                                            {item.currentResponsible ? (
-                                                <span className="responsible-badge">Sí</span>
-                                            ) : (
-                                                <span className="not-responsible-badge">No</span>
+                                            {canAdminPlant && (
+                                                <button
+                                                    type="button"
+                                                    className="danger-button"
+                                                    onClick={() => handleRemoveMember(member)}
+                                                    disabled={actionLoading}
+                                                >
+                                                    Quitar de la planta
+                                                </button>
                                             )}
                                         </td>
-                                        <td>
-                                            <div className="actions">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleMoveUp(member.id)}
-                                                    disabled={actionLoading || item.orderNumber === 1 || !canOperatePlant}
-                                                >
-                                                    Subir
-                                                </button>
-
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleMoveDown(member.id)}
-                                                    disabled={
-                                                        actionLoading ||
-                                                        item.orderNumber === successionList.length ||
-                                                        !canOperatePlant
-                                                    }
-                                                >
-                                                    Bajar
-                                                </button>
-
-                                                {canAdminPlant && (
-                                                    <button
-                                                        type="button"
-                                                        className="danger-button"
-                                                        onClick={() => handleRemoveFromSuccession(member)}
-                                                        disabled={actionLoading}
-                                                    >
-                                                        Quitar
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
                                     </tr>
-                                );
-                            })}
+                                ))}
                             </tbody>
                         </table>
                     </div>

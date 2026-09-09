@@ -119,3 +119,16 @@
     margin: 0;
     line-height: 1.5;
 }
+
+.history-filters-form {
+    max-width: 100%;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    align-items: end;
+}
+
+.history-filters-form label {
+    min-width: 0;
+    gap: 6px;
+    font-size: 13px;
+}

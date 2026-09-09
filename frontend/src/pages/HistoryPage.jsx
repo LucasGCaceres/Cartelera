@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Topbar from "../components/Topbar.jsx";
-import { getAllAuditLogs, getPlantAuditLogs } from "../api/carteleraApi.js";
+import {
+    getAllAuditLogs,
+    getGlobalUsers,
+    getPlantAuditLogs,
+    getPlantUsers,
+} from "../api/carteleraApi.js";
 import { formatDateTime } from "../utils/formatDateTime.js";
 import { translateAction, getAuditActionOptions } from "../utils/translateAction.js";
 import { translateEntityName } from "../utils/translateEntityName.js";
@@ -69,6 +74,9 @@ function HistoryPage({
     const [error, setError] = useState("");
     const [validationError, setValidationError] = useState("");
     const initializedRef = useRef(false);
+    const [usernameOptions, setUsernameOptions] = useState([]);
+    const [showUsernameDropdown, setShowUsernameDropdown] = useState(false);
+    const usernameAutocompleteRef = useRef(null);
 
     useEffect(() => {
         if (!initializedRef.current && currentUserId !== undefined) {
@@ -79,6 +87,75 @@ function HistoryPage({
         }
     }, [currentUserId, initialFilters]);
 
+        useEffect(() => {
+        let cancelled = false;
+
+        async function loadUsernameOptions() {
+            try {
+                const plantCodeForLookup = String(draftFilters.plantCode || "").trim();
+
+                const users = plantCodeForLookup
+                    ? await getPlantUsers(plantCodeForLookup)
+                    : isPlatformAdmin
+                        ? await getGlobalUsers()
+                        : [];
+
+                if (!cancelled) {
+                    setUsernameOptions(users || []);
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    setUsernameOptions([]);
+                }
+                console.error(err);
+            }
+        }
+
+        loadUsernameOptions();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [draftFilters.plantCode, isPlatformAdmin]);
+
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (
+                usernameAutocompleteRef.current &&
+                !usernameAutocompleteRef.current.contains(event.target)
+            ) {
+                setShowUsernameDropdown(false);
+            }
+        }
+
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const matchingUsernameOptions = useMemo(() => {
+        const query = draftFilters.username.trim().toLowerCase();
+
+        if (!query) {
+            return [];
+        }
+
+        return usernameOptions
+            .filter((user) =>
+                [user.username, user.fullName]
+                    .filter(Boolean)
+                    .some((value) => value.toLowerCase().includes(query))
+            )
+            .slice(0, 8);
+    }, [usernameOptions, draftFilters.username]);
+
+    function handleSelectUsernameOption(username) {
+        setDraftFilters((previous) => ({
+            ...previous,
+            username,
+        }));
+        setShowUsernameDropdown(false);
+    }
+    
     const plantOptions = useMemo(() => {
         const options = manageablePlants.map((plant) => ({
             value: plant.code,
@@ -281,7 +358,7 @@ function HistoryPage({
                 )}
 
                 <form className="person-form" onSubmit={handleApplyFilters}>
-                    <div className="form-grid compact-user-form">
+                    <div className="form-grid history-filters-form">
                         <label>
                             Planta
                             <select
@@ -316,14 +393,32 @@ function HistoryPage({
 
                         <label>
                             Usuario
-                            <input
-                                type="text"
-                                name="username"
-                                placeholder="Buscar por username"
-                                value={draftFilters.username}
-                                onChange={handleDraftChange}
-                                disabled={loading}
-                            />
+                            <div className="autocomplete-wrapper" ref={usernameAutocompleteRef}>
+                                <input
+                                    type="text"
+                                    name="username"
+                                    placeholder="Buscar por username"
+                                    value={draftFilters.username}
+                                    onChange={handleDraftChange}
+                                    onFocus={() => setShowUsernameDropdown(true)}
+                                    disabled={loading}
+                                    autoComplete="off"
+                                />
+                                {showUsernameDropdown && matchingUsernameOptions.length > 0 && (
+                                    <div className="autocomplete-dropdown">
+                                        {matchingUsernameOptions.map((user) => (
+                                            <button
+                                                key={user.userId || user.id}
+                                                type="button"
+                                                className="autocomplete-option"
+                                                onClick={() => handleSelectUsernameOption(user.username)}
+                                            >
+                                                {user.fullName} — {user.username}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </label>
 
                         <label>

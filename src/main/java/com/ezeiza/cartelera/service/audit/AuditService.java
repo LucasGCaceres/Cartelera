@@ -6,11 +6,13 @@ import com.ezeiza.cartelera.repository.AuditLogRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -133,7 +135,7 @@ public class AuditService {
         );
     }
 
-    private org.springframework.data.jpa.domain.Specification<AuditLog> buildSpecification(
+    private Specification<AuditLog> buildSpecification(
             String plantCode,
             boolean onlyGlobal,
             String action,
@@ -141,32 +143,30 @@ public class AuditService {
             LocalDate from,
             LocalDate to
     ) {
-        org.springframework.data.jpa.domain.Specification<AuditLog> specification = null;
+        List<Specification<AuditLog>> filters = new ArrayList<>();
 
         if (onlyGlobal) {
-            specification = org.springframework.data.jpa.domain.Specification.where(
-                    AuditLogSpecifications.onlyGlobal()
-            );
+            filters.add(AuditLogSpecifications.onlyGlobal());
         } else if (plantCode != null) {
-            specification = org.springframework.data.jpa.domain.Specification.where(
-                    AuditLogSpecifications.plantCode(plantCode)
-            );
+            filters.add(AuditLogSpecifications.plantCode(plantCode));
         }
 
-        specification = specification == null
-                ? org.springframework.data.jpa.domain.Specification.where(AuditLogSpecifications.actionEquals(action))
-                : specification.and(AuditLogSpecifications.actionEquals(action));
-        specification = specification == null
-                ? org.springframework.data.jpa.domain.Specification.where(AuditLogSpecifications.usernameContains(username))
-                : specification.and(AuditLogSpecifications.usernameContains(username));
-        specification = specification == null
-                ? org.springframework.data.jpa.domain.Specification.where(AuditLogSpecifications.createdAtGreaterThanOrEqual(from))
-                : specification.and(AuditLogSpecifications.createdAtGreaterThanOrEqual(from));
-        specification = specification == null
-                ? org.springframework.data.jpa.domain.Specification.where(AuditLogSpecifications.createdAtBefore(to))
-                : specification.and(AuditLogSpecifications.createdAtBefore(to));
+        filters.add(AuditLogSpecifications.actionEquals(action));
+        filters.add(AuditLogSpecifications.usernameContains(username));
+        filters.add(AuditLogSpecifications.createdAtGreaterThanOrEqual(from));
+        filters.add(AuditLogSpecifications.createdAtBefore(to));
 
-        return specification;
+        Specification<AuditLog> combined = null;
+
+        for (Specification<AuditLog> filter : filters) {
+            if (filter == null) {
+                continue;
+            }
+
+            combined = combined == null ? Specification.where(filter) : combined.and(filter);
+        }
+
+        return combined;
     }
 
     public String getCurrentUsername() {
