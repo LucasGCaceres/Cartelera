@@ -388,7 +388,8 @@ function AdminPage({
                 </div>
             )}
 
-            <section className="grid">
+            <section className="panel-layout">
+                <div className="panel-column">
                 <div className="card responsible-card">
                     <span className="eyebrow">Vista previa</span>
                     <h2>Responsable resultante</h2>
@@ -444,9 +445,8 @@ function AdminPage({
                                     : "Cartelera actualizada"}
                     </button>
                 </div>
-            </section>
 
-            {canAdminPlant && (
+                {canAdminPlant && (
                 <section className="card">
                     <span className="eyebrow">Responsables operativos</span>
                     <h2>Agregar miembro de planta</h2>
@@ -520,7 +520,9 @@ function AdminPage({
                     ) : null}
                 </section>
             )}
+                </div>
 
+                <div className="panel-column">
             <section className="card">
                 <div className="section-header">
                     <div>
@@ -583,6 +585,8 @@ function AdminPage({
                         </table>
                     </div>
                 )}
+            </section>
+                </div>
             </section>
 
         </div>
