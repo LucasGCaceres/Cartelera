@@ -325,11 +325,6 @@ function UsersPage({
                             {actionLoading ? "Guardando..." : "Crear usuario"}
                         </button>
                     </form>
-
-                    <p className="empty-message">
-                        La contraseña es temporal mientras exista login manual. A futuro, con Entra ID,
-                        la contraseña la administra Microsoft.
-                    </p>
                 </section>
             )}
 
@@ -344,10 +339,6 @@ function UsersPage({
                         Actualizar
                     </button>
                 </div>
-
-                <p className="empty-message">
-                    Esta tabla administra permisos sobre la planta seleccionada. La pertenencia operativa y la sucesión se gestionan desde el panel operativo.
-                </p>
 
                 {loading ? (
                     <p className="empty-message">Cargando usuarios...</p>

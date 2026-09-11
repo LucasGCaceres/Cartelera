@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getPublicPlantPublishedDisplay } from "../api/carteleraApi.js";
+import { getPublicPlantPublishedDisplay, getPublicPlants } from "../api/carteleraApi.js";
 import "../styles/display.css";
 
 const DISPLAY_BACKGROUNDS = [
@@ -29,12 +29,13 @@ function getPlantNameFallback(plantCode) {
 }
 
 function DisplayPage({
-                         plantCode,
+                        plantCode,
                          currentUser,
                          onLogout,
                          interactive = false,
                          canOpenPanel = false,
                          onOpenPanel,
+                         onPlantChange,
                      }) {
     const resolvedPlantCode = plantCode || getPlantCodeFromPath() || DEFAULT_PLANT_CODE;
 
@@ -44,6 +45,7 @@ function DisplayPage({
     const [now, setNow] = useState(new Date());
     const [backgroundIndex, setBackgroundIndex] = useState(0);
     const [showControls, setShowControls] = useState(false);
+    const [allPlants, setAllPlants] = useState([]);
 
     const controlsTimeoutRef = useRef(null);
 
@@ -75,6 +77,35 @@ function DisplayPage({
             setShowControls(false);
         }, 5000);
     }
+
+    useEffect(() => {
+        if (!interactive || !currentUser) {
+            return undefined;
+        }
+
+        let cancelled = false;
+
+        async function loadAllPlants() {
+            try {
+                const plantsData = await getPublicPlants();
+
+                if (!cancelled) {
+                    const sorted = [...(plantsData || [])].sort(
+                        (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+                    );
+                    setAllPlants(sorted);
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        loadAllPlants();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [interactive, currentUser]);
 
     useEffect(() => {
         DISPLAY_BACKGROUNDS.forEach((src) => {
@@ -176,6 +207,20 @@ function DisplayPage({
                 <div className={`display-controls ${showControls ? "visible" : ""}`}>
                     {interactive && currentUser && (
                         <>
+                            {allPlants.length > 0 && (
+                                <select
+                                    className="display-plant-switcher"
+                                    value={resolvedPlantCode}
+                                    onChange={(event) => onPlantChange?.(event.target.value)}
+                                    aria-label="Cambiar de planta"
+                                >
+                                    {allPlants.map((plant) => (
+                                        <option key={plant.code} value={plant.code}>
+                                            {plant.displayName || plant.name || plant.code}
+                                        </option>
+                                    ))}
+                                </select>
+                            )}
                             {canOpenPanel && (
                                 <button
                                     type="button"

@@ -1,6 +1,6 @@
 .page {
     min-height: 100vh;
-    padding: 28px;
+    padding: 18px;
     background: #f4f6f8;
 }
 
@@ -13,7 +13,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
     box-shadow: 0 12px 28px rgba(16, 42, 67, 0.18);
 }
 
@@ -150,15 +150,15 @@
 
 .panel-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 24px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2.2fr);
+    gap: 16px;
     margin-bottom: 24px;
     align-items: start;
 }
 
 .panel-column {
     display: grid;
-    gap: 24px;
+    gap: 14px;
     min-width: 0;
 }
 
@@ -172,6 +172,7 @@
     border-radius: 18px;
     padding: 24px;
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    min-width: 0;
 }
 
 .responsible-card {

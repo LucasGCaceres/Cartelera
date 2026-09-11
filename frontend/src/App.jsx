@@ -287,6 +287,7 @@ function App() {
             interactive
             canOpenPanel={userHasRoleInPlant(currentUser, appPlantCode)}
             onOpenPanel={handleOpenPanel}
+            onPlantChange={handlePlantChange}
         />
     );
   }

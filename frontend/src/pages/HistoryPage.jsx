@@ -511,8 +511,6 @@ function HistoryPage({
                                         <th>Acción</th>
                                         <th>Tipo</th>
                                         <th>Detalle</th>
-                                        <th>Antes</th>
-                                        <th>Después</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -528,8 +526,6 @@ function HistoryPage({
                                             </td>
                                             <td>{translateEntityName(log.entityName)}</td>
                                             <td>{log.description?.trim() || "-"}</td>
-                                            <td>{log.oldValue || "-"}</td>
-                                            <td>{log.newValue || "-"}</td>
                                         </tr>
                                     ))}
                                 </tbody>

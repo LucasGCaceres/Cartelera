@@ -5,7 +5,9 @@
 table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 820px;
+    min-width: 640px;
+    margin-top: 10px;
+    margin-bottom: 10px;
 }
 
 th,
@@ -27,7 +29,16 @@ th {
 .actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 10px;
+    margin-top: 5px;
+}
+
+.actions span {
+    padding: 0 4px;
+    color: #475569;
+    font-weight: 600;
 }
 
 .availability-toggle {
