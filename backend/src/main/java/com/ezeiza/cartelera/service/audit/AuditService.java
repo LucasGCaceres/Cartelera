@@ -1,8 +1,10 @@
 package com.ezeiza.cartelera.service.audit;
 
+import com.ezeiza.cartelera.entity.AppUser;
 import com.ezeiza.cartelera.entity.AuditLog;
 import com.ezeiza.cartelera.entity.Plant;
 import com.ezeiza.cartelera.repository.AuditLogRepository;
+import com.ezeiza.cartelera.service.auth.CurrentUserResolver;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -19,9 +21,11 @@ import java.util.List;
 public class AuditService {
 
     private final AuditLogRepository auditLogRepository;
+    private final CurrentUserResolver currentUserResolver;
 
-    public AuditService(AuditLogRepository auditLogRepository) {
+    public AuditService(AuditLogRepository auditLogRepository, CurrentUserResolver currentUserResolver) {
         this.auditLogRepository = auditLogRepository;
+        this.currentUserResolver = currentUserResolver;
     }
 
     /*
@@ -170,6 +174,12 @@ public class AuditService {
     }
 
     public String getCurrentUsername() {
+        return currentUserResolver.resolveCurrentUser()
+                .map(AppUser::getUsername)
+                .orElseGet(this::getCurrentUsernameFallback);
+    }
+
+    private String getCurrentUsernameFallback() {
         Authentication authentication = SecurityContextHolder
                 .getContext()
                 .getAuthentication();

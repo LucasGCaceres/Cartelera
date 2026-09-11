@@ -4,11 +4,9 @@ import com.ezeiza.cartelera.entity.AppUser;
 import com.ezeiza.cartelera.entity.Plant;
 import com.ezeiza.cartelera.entity.PlantRole;
 import com.ezeiza.cartelera.entity.UserPlantRole;
-import com.ezeiza.cartelera.repository.AppUserRepository;
 import com.ezeiza.cartelera.repository.UserPlantRoleRepository;
+import com.ezeiza.cartelera.service.auth.CurrentUserResolver;
 import com.ezeiza.cartelera.service.plant.PlantService;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
@@ -16,33 +14,25 @@ import java.util.Optional;
 @Service
 public class PlantPermissionService {
 
-    private final AppUserRepository appUserRepository;
+    private final CurrentUserResolver currentUserResolver;
     private final UserPlantRoleRepository userPlantRoleRepository;
     private final PlantService plantService;
 
-    public PlantPermissionService(AppUserRepository appUserRepository,
+    public PlantPermissionService(CurrentUserResolver currentUserResolver,
                                   UserPlantRoleRepository userPlantRoleRepository,
                                   PlantService plantService) {
-        this.appUserRepository = appUserRepository;
+        this.currentUserResolver = currentUserResolver;
         this.userPlantRoleRepository = userPlantRoleRepository;
         this.plantService = plantService;
     }
 
     public AppUser getCurrentUserOrThrow() {
-        String username = getCurrentUsername();
-
-        return appUserRepository.findByUsernameAndActiveTrue(username)
+        return getCurrentUser()
                 .orElseThrow(() -> new IllegalArgumentException("Usuario autenticado no encontrado o inactivo"));
     }
 
     public Optional<AppUser> getCurrentUser() {
-        String username = getCurrentUsernameOrNull();
-
-        if (username == null) {
-            return Optional.empty();
-        }
-
-        return appUserRepository.findByUsernameAndActiveTrue(username);
+        return currentUserResolver.resolveCurrentUser();
     }
 
     public boolean isCurrentUserPlatformAdmin() {
@@ -153,30 +143,6 @@ public class PlantPermissionService {
     }
 
     public String getCurrentUsername() {
-        String username = getCurrentUsernameOrNull();
-
-        if (username == null) {
-            throw new IllegalArgumentException("Usuario no autenticado");
-        }
-
-        return username;
-    }
-
-    private String getCurrentUsernameOrNull() {
-        Authentication authentication = SecurityContextHolder
-                .getContext()
-                .getAuthentication();
-
-        if (authentication == null || authentication.getName() == null) {
-            return null;
-        }
-
-        String username = authentication.getName();
-
-        if ("anonymousUser".equals(username)) {
-            return null;
-        }
-
-        return username;
+        return getCurrentUserOrThrow().getUsername();
     }
 }

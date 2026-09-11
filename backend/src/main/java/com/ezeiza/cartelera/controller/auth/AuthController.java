@@ -9,6 +9,7 @@ import com.ezeiza.cartelera.entity.UserPlantRole;
 import com.ezeiza.cartelera.repository.AppUserRepository;
 import com.ezeiza.cartelera.repository.PlantRepository;
 import com.ezeiza.cartelera.repository.UserPlantRoleRepository;
+import com.ezeiza.cartelera.service.auth.CurrentUserResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.http.HttpStatus;
@@ -32,15 +33,18 @@ public class AuthController {
     private final AppUserRepository appUserRepository;
     private final UserPlantRoleRepository userPlantRoleRepository;
     private final PlantRepository plantRepository;
+    private final CurrentUserResolver currentUserResolver;
 
     public AuthController(AuthenticationManager authenticationManager,
                           AppUserRepository appUserRepository,
                           UserPlantRoleRepository userPlantRoleRepository,
-                          PlantRepository plantRepository) {
+                          PlantRepository plantRepository,
+                          CurrentUserResolver currentUserResolver) {
         this.authenticationManager = authenticationManager;
         this.appUserRepository = appUserRepository;
         this.userPlantRoleRepository = userPlantRoleRepository;
         this.plantRepository = plantRepository;
+        this.currentUserResolver = currentUserResolver;
     }
 
     @PostMapping("/login")
@@ -114,19 +118,7 @@ public class AuthController {
 
     @GetMapping("/me")
     public AuthUserResponse me() {
-        Authentication authentication = SecurityContextHolder
-                .getContext()
-                .getAuthentication();
-
-        if (authentication == null
-                || authentication.getName() == null
-                || "anonymousUser".equals(authentication.getName())) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
-        }
-
-        String username = authentication.getName().trim().toLowerCase();
-
-        AppUser appUser = appUserRepository.findByUsernameAndActiveTrue(username)
+        AppUser appUser = currentUserResolver.resolveCurrentUser()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
 
         return toAuthUserResponse(appUser);
