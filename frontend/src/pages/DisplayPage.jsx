@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getPublicPlantPublishedDisplay, getPublicPlants } from "../api/carteleraApi.js";
+import { getPlantCodeFromPath } from "../utils/routing.js";
 import "../styles/display.css";
 
 const DISPLAY_BACKGROUNDS = [
@@ -10,17 +11,6 @@ const DISPLAY_BACKGROUNDS = [
 
 const DISPLAY_LOGO = "/assets/display/Logo_Gate.png";
 const DEFAULT_PLANT_CODE = "ezeiza";
-
-function getPlantCodeFromPath() {
-    const path = window.location.pathname;
-    const parts = path.split("/").filter(Boolean);
-
-    if ((parts[0] === "display" || parts[0] === "app") && parts[1]) {
-        return parts[1];
-    }
-
-    return null;
-}
 
 function getPlantNameFallback(plantCode) {
     return String(plantCode || DEFAULT_PLANT_CODE)

@@ -4,7 +4,7 @@ export function translateEntityName(entityName) {
         Plant: "Planta",
         PlantMember: "Miembro de planta",
         SuccessionOrder: "Sucesión",
-        Display: "Cartelera",
+        DisplayPublished: "Cartelera",
         UserPlantRole: "Permiso de planta",
     };
 

@@ -5,6 +5,7 @@ import HistoryPage from "./pages/HistoryPage.jsx";
 import UsersPage from "./pages/UsersPage.jsx";
 import DisplayPage from "./pages/DisplayPage.jsx";
 import { getCurrentUser, logout } from "./api/carteleraApi.js";
+import { getPlantCodeFromPath } from "./utils/routing.js";
 import "./App.css";
 
 const DEFAULT_PLANT_CODE = "ezeiza";
@@ -27,16 +28,6 @@ function getRouteFromPath(path = window.location.pathname) {
   }
 
   return "admin";
-}
-
-function getPlantCodeFromPath(path = window.location.pathname) {
-  const parts = path.split("/").filter(Boolean);
-
-  if ((parts[0] === "display" || parts[0] === "app") && parts[1]) {
-    return parts[1];
-  }
-
-  return null;
 }
 
 function getDefaultPlantCode(user) {
