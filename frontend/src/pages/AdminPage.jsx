@@ -171,7 +171,6 @@ function AdminPage({
         setShowUserDropdown(false);
 
         loadAllData();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [plantCode]);
 
     useEffect(() => {
@@ -542,7 +541,7 @@ function AdminPage({
                                 <th>Email</th>
                                 <th>Cargo</th>
                                 <th>Encargado actual</th>
-                                <th>Acciones</th>
+                                {canAdminPlant && <th>Acciones</th>}
                             </tr>
                             </thead>
 
@@ -567,18 +566,18 @@ function AdminPage({
                                                 {member.available ? "Sí" : "No"}
                                             </label>
                                         </td>
-                                        <td>
                                             {canAdminPlant && (
-                                                <button
-                                                    type="button"
-                                                    className="danger-button"
-                                                    onClick={() => handleRemoveMember(member)}
-                                                    disabled={actionLoading}
-                                                >
-                                                    Quitar de la planta
-                                                </button>
+                                                <td>
+                                                    <button
+                                                        type="button"
+                                                        className="danger-button"
+                                                        onClick={() => handleRemoveMember(member)}
+                                                        disabled={actionLoading}
+                                                    >
+                                                        Quitar de la planta
+                                                    </button>
+                                                </td>
                                             )}
-                                        </td>
                                     </tr>
                                 ))}
                             </tbody>

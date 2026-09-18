@@ -6,6 +6,10 @@
     border-radius: 12px;
     margin-bottom: 18px;
     font-weight: 700;
+    position: sticky;
+    top: 12px;
+    z-index: 30;
+    box-shadow: 0 10px 24px rgba(159, 28, 28, 0.18);
 }
 
 .pending-box {

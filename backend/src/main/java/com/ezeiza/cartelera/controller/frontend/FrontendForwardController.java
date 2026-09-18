@@ -38,8 +38,7 @@ public class FrontendForwardController {
      * Ejemplos:
      * /app/ezeiza
      * /app/aeroparque
-     *
-     * En el futuro esta ruta autenticará con Entra ID.
+     * /app/the-pro-laundry
      */
     @GetMapping("/app/{plantCode}")
     public String forwardAppPlantRouteToReact() {
